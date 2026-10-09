@@ -5,6 +5,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { PromptDialog } from "@/components/prompt-dialog";
 import type { FileRecord } from "@/lib/db";
 import { ensureReadWrite, hasReadWrite } from "@/lib/fs-access";
+import { hasMemoryFiles } from "@/lib/file-access-cache";
+import { chooseFolder } from "@/lib/folder-source";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createProvider } from "@/lib/ai";
@@ -52,7 +54,8 @@ export function FilesPage() {
   useEffect(() => {
     if (!root) return;
     let cancelled = false;
-    void hasReadWrite(root.handle).then((ok) => !cancelled && setAccess(ok ? "granted" : "prompt"));
+    const check = root.handle ? hasReadWrite(root.handle) : Promise.resolve(hasMemoryFiles(root.id));
+    void check.then((ok) => !cancelled && setAccess(ok ? "granted" : "prompt"));
     return () => {
       cancelled = true;
     };
@@ -90,7 +93,17 @@ export function FilesPage() {
   if (status === "indexing") return <IndexProgressCard />;
   if (!root) return <DropZone />;
 
+  // Read-only folders have no handle to re-authorize: the user picks the folder again.
+  const reopen = async () => {
+    const source = await chooseFolder();
+    if (source) await connectFolder(source);
+  };
+  const rescan = async () => {
+    if (!root.handle) return reopen();
+    if (await ensureReadWrite(root.handle)) void connectFolder(root.handle);
+  };
   const allowAccess = async () => {
+    if (!root.handle) return reopen();
     if (await ensureReadWrite(root.handle)) {
       setAccess("granted");
       setAccessKey((k) => k + 1);
@@ -120,12 +133,19 @@ export function FilesPage() {
     <div {...bind} className="relative flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <div className="min-w-0">
-          <h1 className="truncate font-semibold">{root.name}</h1>
+          <h1 className="flex items-center gap-2 truncate font-semibold">
+            {root.name}
+            {root.readOnly && (
+              <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning" title="Opened without the File System Access API: files can't be moved or renamed">
+                Read-only
+              </span>
+            )}
+          </h1>
           <p className="text-xs text-muted">{files ? `${liveFiles.length.toLocaleString()} files · ${formatBytes(totalSize)}` : "…"}</p>
         </div>
         <AnalysisStatus />
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={async () => (await ensureReadWrite(root.handle)) && void connectFolder(root.handle)} title="Look for new, changed and removed files">
+          <Button variant="outline" size="sm" onClick={() => void rescan()} title="Look for new, changed and removed files">
             <RefreshCw />
             Rescan
           </Button>
@@ -177,9 +197,9 @@ export function FilesPage() {
       </div>
       {access === "prompt" && (
         <Banner tone="accent" icon={<Lock className="size-4" />}>
-          Allow access to “{root.name}” again to see previews, analyze and organize.
+          {root.readOnly ? `Choose “${root.name}” again to see previews and analyze it (read-only folders aren't kept between visits).` : `Allow access to “${root.name}” again to see previews, analyze and organize.`}
           <Button size="sm" className="ml-auto" onClick={allowAccess}>
-            Allow access
+            {root.readOnly ? "Choose folder" : "Allow access"}
           </Button>
         </Banner>
       )}

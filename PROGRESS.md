@@ -37,6 +37,11 @@ All 8 phases from CLAUDE.md are implemented. The app runs with `npm run dev` (Ch
   - Agent: find (“signed NDA with Alpha”), organize by client → Plan Card → nothing on disk until Approve → files moved; "make a rule" → approve → run rule (70 files → Temp) → undo batch (all back); flag for deletion → Needs Review (nothing trashed); Greek reply.
   - Tag + rename with AI names via the floating bar; inline caption edit in quick-look; Ctrl+K palette; `?` overlay; mini mode; dark mode. No console errors.
 
+## Browser support
+
+- **Chrome / Edge (desktop):** full mode, with read and write access through the File System Access API.
+- **Brave, Firefox, Safari:** **read-only mode**. Folders open through the standard folder picker or drag-and-drop (`webkitdirectory` / `webkitGetAsEntry`). Indexing, local analysis, AI, agent and search all work; moves, renames and trash are refused with a clear message. Read-only folders must be chosen again after a reload. In Brave, full mode can be enabled at `brave://flags/#file-system-access-api`.
+
 ## Known issues / notes
 
 - **Real AI not tested from here**: no Ollama or API key in this environment. The provider code follows each API's documented format and was exercised against a fake OpenAI-compatible server. Please run *Settings → Test connection* with your provider. For Ollama, set `OLLAMA_ORIGINS` (instructions in Settings).

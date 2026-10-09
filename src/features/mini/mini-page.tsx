@@ -3,7 +3,7 @@ import { ExternalLink, FolderOpen, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { undoBatch } from "@/lib/actions/engine";
-import { pickDirectory } from "@/lib/fs-access";
+import { chooseFolder } from "@/lib/folder-source";
 import { cn } from "@/lib/utils";
 import { AgentChat } from "@/components/layout/agent-panel";
 import { useFolderDrop } from "@/features/intake/use-folder-drop";
@@ -50,8 +50,8 @@ export function MiniPage() {
             <Button
               size="sm"
               onClick={async () => {
-                const h = await pickDirectory();
-                if (h) await connectFolder(h);
+                const source = await chooseFolder();
+                if (source) await connectFolder(source);
               }}
             >
               Choose folder

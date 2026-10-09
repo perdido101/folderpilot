@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { FolderInput, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { isFileSystemAccessSupported, pickDirectory } from "@/lib/fs-access";
+import { isFileSystemAccessSupported } from "@/lib/fs-access";
+import { chooseFolder } from "@/lib/folder-source";
 import { cn } from "@/lib/utils";
 import { useIndexing } from "@/stores/indexing";
 import { useFolderDrop } from "./use-folder-drop";
@@ -15,8 +16,8 @@ export function DropZone() {
   const choose = async () => {
     setError(null);
     try {
-      const handle = await pickDirectory();
-      if (handle) await connectFolder(handle);
+      const source = await chooseFolder();
+      if (source) await connectFolder(source);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't open that folder.");
     }
@@ -38,9 +39,10 @@ export function DropZone() {
           <h1 className="text-xl font-semibold">{dragging ? "Release to open this folder" : "Drop a folder here — or choose one"}</h1>
           <p className="text-muted">Drag a folder from Windows Explorer. FolderPilot will index it so you can browse, find and clean it up.</p>
         </div>
-        <Button size="lg" onClick={choose} disabled={!supported}>
+        <Button size="lg" onClick={choose}>
           Choose folder
         </Button>
+        {!supported && <p className="max-w-md text-xs text-warning">This browser opens folders read-only: you can browse, find duplicates and use the AI and agent, but organizing files on disk needs Chrome or Edge.</p>}
         {error && <p className="text-sm text-danger">{error}</p>}
         <p className="flex items-center gap-1.5 text-xs text-muted">
           <Lock className="size-3" />

@@ -5,7 +5,10 @@ import type { Rule } from "./rules/types";
 export interface RootRecord {
   id: number;
   name: string;
-  handle: FileSystemDirectoryHandle;
+  /** Missing for read-only folders opened without the File System Access API. */
+  handle?: FileSystemDirectoryHandle;
+  /** Opened via the standard file picker: files can be read but not moved/renamed on disk. */
+  readOnly?: boolean;
   addedAt: number;
   indexedAt?: number;
   fileCount?: number;

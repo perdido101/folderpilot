@@ -23,19 +23,6 @@ export async function pickDirectory(): Promise<FileSystemDirectoryHandle | null>
   }
 }
 
-/**
- * Must be called synchronously inside the drop handler: DataTransfer items are only
- * readable during the event, so we grab the handle promises before awaiting anything.
- */
-export function directoryHandlesFromDrop(dt: DataTransfer): Promise<FileSystemDirectoryHandle[]> {
-  const pending = Array.from(dt.items)
-    .filter((item) => item.kind === "file" && typeof item.getAsFileSystemHandle === "function")
-    .map((item) => item.getAsFileSystemHandle!());
-  return Promise.all(pending).then((handles) =>
-    handles.filter((h): h is FileSystemDirectoryHandle => h?.kind === "directory"),
-  );
-}
-
 /** Resolve a "/"-separated relative path to a file handle under the root. */
 export async function resolveFile(root: FileSystemDirectoryHandle, path: string): Promise<FileSystemFileHandle> {
   const parts = path.split("/");

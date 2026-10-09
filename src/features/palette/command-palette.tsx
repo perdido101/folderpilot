@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
 import { Bot, FolderOpen, Keyboard, Monitor, Moon, PanelRight, RefreshCw, Sparkles, Sun, AppWindow } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { pickDirectory } from "@/lib/fs-access";
+import { chooseFolder } from "@/lib/folder-source";
 import { keywordSearch } from "@/lib/search";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
 import { NAV } from "@/components/layout/sidebar";
@@ -75,15 +75,15 @@ export function CommandPalette() {
                 value="choose open folder"
                 className={itemCls}
                 onSelect={run(async () => {
-                  const h = await pickDirectory();
-                  if (h) await connectFolder(h);
+                  const source = await chooseFolder();
+                  if (source) await connectFolder(source);
                 })}
               >
                 <FolderOpen />
                 Choose folder…
               </Command.Item>
-              {root && (
-                <Command.Item value="rescan folder" className={itemCls} onSelect={run(() => connectFolder(root.handle))}>
+              {root?.handle && (
+                <Command.Item value="rescan folder" className={itemCls} onSelect={run(() => connectFolder(root.handle!))}>
                   <RefreshCw />
                   Rescan “{root.name}”
                 </Command.Item>

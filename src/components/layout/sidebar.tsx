@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { AppWindow, Copy, Files, FolderOpen, FolderPlus, Inbox, ScrollText, Settings, Shapes, Trash2, Workflow } from "lucide-react";
 import { openMiniWindow } from "@/features/palette/command-palette";
 import { db } from "@/lib/db";
-import { pickDirectory } from "@/lib/fs-access";
+import { chooseFolder } from "@/lib/folder-source";
 import { cn } from "@/lib/utils";
 import { useIndexing } from "@/stores/indexing";
 import { useUI } from "@/stores/ui";
@@ -32,8 +32,8 @@ export function Sidebar() {
   const connectFolder = useIndexing((s) => s.connectFolder);
 
   const addFolder = async () => {
-    const handle = await pickDirectory();
-    if (handle) await connectFolder(handle);
+    const source = await chooseFolder();
+    if (source) await connectFolder(source);
   };
 
   return (

@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { indexRoot, upsertRoot, type IndexProgress } from "@/lib/indexer";
+import { indexRoot, upsertReadOnlyRoot, upsertRoot, type IndexProgress } from "@/lib/indexer";
+import type { FolderSource } from "@/lib/folder-source";
 import { ensureReadWrite } from "@/lib/fs-access";
-import { registerRootHandle } from "@/lib/file-access-cache";
+import { registerMemoryFiles, registerRootHandle } from "@/lib/file-access-cache";
 import { runLocalAnalysis } from "@/lib/analysis/runner";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
 import { getSettings } from "@/lib/settings";
@@ -15,7 +16,8 @@ interface IndexingState {
   progress: IndexProgress;
   error: string | null;
   controller: AbortController | null;
-  connectFolder: (handle: FileSystemDirectoryHandle) => Promise<void>;
+  /** Open (or rescan) a folder from a picker/drop source, or a directory handle. */
+  connectFolder: (source: FolderSource | FileSystemDirectoryHandle) => Promise<void>;
   cancel: () => void;
   dismiss: () => void;
 }
@@ -29,19 +31,26 @@ export const useIndexing = create<IndexingState>()((set, get) => ({
   error: null,
   controller: null,
 
-  connectFolder: async (handle) => {
+  connectFolder: async (input) => {
     if (get().status === "indexing") return;
-    if (!(await ensureReadWrite(handle))) {
+    const source: FolderSource = input.kind === "directory" ? { kind: "handle", name: input.name, handle: input } : input;
+    if (source.kind === "handle" && !(await ensureReadWrite(source.handle))) {
       set({ status: "error", error: "FolderPilot needs read & write access to organize this folder." });
       return;
     }
     const controller = new AbortController();
-    set({ status: "indexing", rootName: handle.name, progress: EMPTY, error: null, controller });
+    set({ status: "indexing", rootName: source.name, progress: EMPTY, error: null, controller });
     try {
-      const rootId = await upsertRoot(handle);
-      registerRootHandle(rootId, handle);
+      let rootId: number;
+      if (source.kind === "handle") {
+        rootId = await upsertRoot(source.handle);
+        registerRootHandle(rootId, source.handle);
+      } else {
+        rootId = await upsertReadOnlyRoot(source.name);
+        registerMemoryFiles(rootId, source.files);
+      }
       useUI.getState().setActiveRootId(rootId);
-      await indexRoot(rootId, handle, (progress) => set({ progress }), controller.signal);
+      await indexRoot(rootId, source.kind === "handle" ? source.handle : source.files, (progress) => set({ progress }), controller.signal);
       set({ status: controller.signal.aborted ? "cancelled" : "done", controller: null });
       if (!controller.signal.aborted) void analyzeAfterIndex(rootId);
     } catch (err) {

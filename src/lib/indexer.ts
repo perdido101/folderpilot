@@ -9,7 +9,7 @@ export interface IndexProgress {
 
 interface WalkEntry {
   path: string;
-  handle: FileSystemFileHandle;
+  getFile: () => Promise<File>;
 }
 
 async function* walk(dir: FileSystemDirectoryHandle, prefix: string, signal: AbortSignal, onDir: () => void): AsyncGenerator<WalkEntry> {
@@ -21,7 +21,7 @@ async function* walk(dir: FileSystemDirectoryHandle, prefix: string, signal: Abo
     if (handle.kind === "directory") {
       yield* walk(handle as FileSystemDirectoryHandle, path, signal, onDir);
     } else {
-      yield { path, handle: handle as FileSystemFileHandle };
+      yield { path, getFile: () => (handle as FileSystemFileHandle).getFile() };
     }
   }
 }
@@ -49,13 +49,14 @@ const RESET: Partial<FileRecord> = {
  */
 export async function indexRoot(
   rootId: number,
-  root: FileSystemDirectoryHandle,
+  root: FileSystemDirectoryHandle | Map<string, File>,
   onProgress: (p: IndexProgress) => void,
   signal: AbortSignal,
 ): Promise<number> {
   const existing = new Map((await db.files.where("rootId").equals(rootId).toArray()).map((f) => [f.path, f]));
   const seen = new Set<number>();
   const progress: IndexProgress = { scanned: 0, dirs: 0, currentPath: "" };
+  const entries = root instanceof Map ? memoryEntries(root, signal) : walk(root, "", signal, () => progress.dirs++);
   let adds: NewFileRecord[] = [];
   let updates: { key: number; changes: Partial<FileRecord> }[] = [];
   const flush = async () => {
@@ -65,10 +66,10 @@ export async function indexRoot(
     updates = [];
   };
 
-  for await (const entry of walk(root, "", signal, () => progress.dirs++)) {
+  for await (const entry of entries) {
     let file: File;
     try {
-      file = await entry.handle.getFile();
+      file = await entry.getFile();
     } catch {
       continue; // locked or vanished mid-scan
     }
@@ -112,10 +113,24 @@ export async function indexRoot(
   return progress.scanned;
 }
 
+async function* memoryEntries(files: Map<string, File>, signal: AbortSignal): AsyncGenerator<WalkEntry> {
+  for (const [path, file] of files) {
+    if (signal.aborted) return;
+    yield { path, getFile: async () => file };
+  }
+}
+
+/** Read-only folders are matched by name (there is no handle to compare). */
+export async function upsertReadOnlyRoot(name: string): Promise<number> {
+  const existing = (await db.roots.toArray()).find((r) => r.readOnly && r.name === name);
+  if (existing) return existing.id;
+  return db.roots.add({ name, readOnly: true, addedAt: Date.now() });
+}
+
 /** Add a root (or reuse the existing record if the same folder was connected before). */
 export async function upsertRoot(handle: FileSystemDirectoryHandle): Promise<number> {
   for (const existing of await db.roots.toArray()) {
-    if (await existing.handle.isSameEntry(handle)) {
+    if (existing.handle && (await existing.handle.isSameEntry(handle))) {
       await db.roots.update(existing.id, { handle, name: handle.name });
       return existing.id;
     }
