@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/folderpilot/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0F766E" />
+    <title>FolderPilot</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a light/dark flash.
+      (function () {
+        try {
+          var t = localStorage.getItem("fp-theme") || "system";
+          var dark = t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/folderpilot/assets/index-CdIxDzPc.js"></script>
+    <link rel="stylesheet" crossorigin href="/folderpilot/assets/index-CvZXjPni.css">
+  <link rel="manifest" href="/folderpilot/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/folderpilot/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
