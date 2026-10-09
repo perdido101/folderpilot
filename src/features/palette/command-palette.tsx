@@ -19,7 +19,7 @@ const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 tex
 const groupCls = "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-muted";
 
 export function openMiniWindow() {
-  window.open("/mini", "folderpilot-mini", "popup,width=400,height=560");
+  window.open(`${import.meta.env.BASE_URL}mini`, "folderpilot-mini", "popup,width=400,height=560");
 }
 
 /** Ctrl/⌘+K: navigation, actions, files, and "Ask the agent…". */

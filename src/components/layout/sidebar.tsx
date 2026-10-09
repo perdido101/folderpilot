@@ -39,7 +39,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-surface">
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        <img src="/favicon.svg" alt="" className="size-6" />
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="size-6" />
         <span className="font-semibold tracking-tight">FolderPilot</span>
       </div>
 

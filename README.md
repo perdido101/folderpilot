@@ -16,3 +16,6 @@ npm run sample     # generate ./sample-messy (500+ messy test files); add -- <pa
 ```
 
 AI is optional. In **Settings** pick Local (Ollama), an OpenAI-compatible endpoint, or Anthropic, then click **Test connection**.
+
+**Live:** https://perdido101.github.io/folderpilot/ — redeployed by `.github/workflows/pages.yml` on every push to `main`
+(builds with `BASE_PATH=/folderpilot/` and publishes `dist/` to the `gh-pages` branch).

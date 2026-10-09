@@ -36,9 +36,9 @@ export function MiniPage() {
   return (
     <div {...bind} className={cn("flex h-full flex-col bg-surface", dragging && "bg-accent-soft")}>
       <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-        <img src="/favicon.svg" alt="" className="size-5" />
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="size-5" />
         <span className="truncate text-sm font-semibold">{root ? root.name : "FolderPilot"}</span>
-        <a href="/" target="folderpilot-main" className="ml-auto inline-flex items-center gap-1 text-xs text-accent hover:underline">
+        <a href={import.meta.env.BASE_URL} target="folderpilot-main" className="ml-auto inline-flex items-center gap-1 text-xs text-accent hover:underline">
           Open full app <ExternalLink className="size-3" />
         </a>
       </header>
