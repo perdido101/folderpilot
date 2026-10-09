@@ -6,6 +6,10 @@ import { getFile } from "@/lib/file-access-cache";
 import { isTextPreviewable } from "@/lib/file-kinds";
 import { formatBytes, formatDate } from "@/lib/format";
 import { FileIcon } from "./file-icon";
+import { FileDetails } from "./file-details";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { useSelection } from "@/stores/selection";
 
 const TEXT_LIMIT = 200_000;
 
@@ -101,7 +105,7 @@ export function QuickLook({ files, openId, onNavigate }: Props) {
   return (
     <Dialog open={!!file} onOpenChange={(open) => !open && onNavigate(null)}>
       <DialogContent
-        className="flex h-[85vh] max-w-5xl flex-col gap-3 p-4 focus-visible:ring-0"
+        className="flex h-[85vh] max-w-6xl flex-col gap-3 p-4 focus-visible:ring-0"
         // Focus the dialog itself, not the first button, so Space/arrows never "click" Previous/Next.
         onOpenAutoFocus={(e) => {
           e.preventDefault();
@@ -125,8 +129,13 @@ export function QuickLook({ files, openId, onNavigate }: Props) {
                 <span>{formatDate(file.mtime)}</span>
               </DialogDescription>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <PreviewBody file={file} preview={preview} />
+            <div className="flex min-h-0 flex-1 gap-4">
+              <div className="flex min-w-0 flex-1 items-center justify-center">
+                <PreviewBody file={file} preview={preview} />
+              </div>
+              <aside className="w-64 shrink-0 overflow-y-auto border-l pl-3">
+                <FileDetails file={file} />
+              </aside>
             </div>
             <div className="flex items-center justify-between text-xs text-muted">
               <button onClick={() => go(-1)} disabled={index <= 0} className="inline-flex items-center gap-1 disabled:opacity-40">
@@ -143,5 +152,24 @@ export function QuickLook({ files, openId, onNavigate }: Props) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** App-wide quick-look, opened from the file grid, chat file chips, review lists… */
+export function GlobalQuickLook() {
+  const { quickLookId, quickLookIds, openQuickLook, setFocus } = useSelection();
+  const files = useLiveQuery(async () => (await db.files.bulkGet([...quickLookIds])).filter((f): f is FileRecord => Boolean(f)), [quickLookIds]);
+  return (
+    <QuickLook
+      files={files ?? []}
+      openId={quickLookId}
+      onNavigate={(id) => {
+        openQuickLook(id);
+        if (id !== null) {
+          setFocus(id);
+          document.getElementById(`file-${id}`)?.scrollIntoView({ block: "nearest" });
+        }
+      }}
+    />
   );
 }

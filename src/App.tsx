@@ -1,8 +1,18 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { Copy, Inbox, ScrollText, Settings, Shapes, Trash2, Workflow } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ThemeSync } from "@/components/theme-sync";
+import { Toaster } from "@/components/toaster";
+import { AuditPage } from "@/features/audit/audit-page";
+import { CategoriesPage } from "@/features/categories/categories-page";
+import { DuplicatesPage } from "@/features/cleanup/duplicates-page";
 import { FilesPage } from "@/features/files/files-page";
+import { GlobalQuickLook } from "@/features/files/quick-look";
+import { MiniPage } from "@/features/mini/mini-page";
+import { NeedsReviewPage } from "@/features/review/needs-review-page";
+import { RulesPage } from "@/features/rules/rules-page";
+import { SettingsPage } from "@/features/settings/settings-page";
+import { TrashPage } from "@/features/trash/trash-page";
 import { PlaceholderPage } from "@/pages/placeholder-page";
 
 const router = createBrowserRouter([
@@ -11,39 +21,26 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <FilesPage /> },
-      {
-        path: "review",
-        element: <PlaceholderPage icon={Inbox} phase={3} title="Needs Review" description="Files the AI wasn't sure about land here for you to decide." />,
-      },
-      {
-        path: "categories",
-        element: <PlaceholderPage icon={Shapes} phase={3} title="Categories" description="Browse files by what they are: invoices, contracts, photos, screenshots…" />,
-      },
-      {
-        path: "rules",
-        element: <PlaceholderPage icon={Workflow} phase={5} title="Rules" description="IF → THEN rules, or plain-language rules like “screenshots go to /Temp”." />,
-      },
-      {
-        path: "duplicates",
-        element: <PlaceholderPage icon={Copy} phase={2} title="Duplicates & Bad Files" description="Exact and near-duplicates, blurry, dark and tiny photos — reviewed one by one." />,
-      },
-      {
-        path: "audit",
-        element: <PlaceholderPage icon={ScrollText} phase={4} title="Audit Log" description="Every change, who made it and why — with undo." />,
-      },
-      {
-        path: "trash",
-        element: <PlaceholderPage icon={Trash2} phase={4} title="Trash" description="Trashed files are moved to a hidden folder and can always be restored." />,
-      },
-      {
-        path: "settings",
-        element: <PlaceholderPage icon={Settings} phase={3} title="Settings" description="Choose your AI: local Ollama, or your own OpenAI-compatible or Anthropic endpoint." />,
-      },
-      {
-        path: "*",
-        element: <PlaceholderPage icon={Inbox} title="Not found" description="This page doesn't exist." />,
-      },
+      { path: "review", element: <NeedsReviewPage /> },
+      { path: "categories", element: <CategoriesPage /> },
+      { path: "rules", element: <RulesPage /> },
+      { path: "duplicates", element: <DuplicatesPage /> },
+      { path: "audit", element: <AuditPage /> },
+      { path: "trash", element: <TrashPage /> },
+      { path: "settings", element: <SettingsPage /> },
+      { path: "*", element: <PlaceholderPage icon={Inbox} title="Not found" description="This page doesn't exist." /> },
     ],
+  },
+  {
+    // Standalone compact layout — later the Tauri tray popup.
+    path: "/mini",
+    element: (
+      <>
+        <MiniPage />
+        <GlobalQuickLook />
+        <Toaster />
+      </>
+    ),
   },
 ]);
 

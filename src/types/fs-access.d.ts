@@ -23,3 +23,8 @@ interface Window {
 interface DataTransferItem {
   getAsFileSystemHandle?(): Promise<FileSystemHandle | null>;
 }
+
+interface FileSystemFileHandle {
+  /** Chrome 110+: move/rename in place without copying. */
+  move?(destination: FileSystemDirectoryHandle, newName?: string): Promise<void>;
+}

@@ -1,11 +1,13 @@
 import { NavLink } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Copy, Files, FolderOpen, FolderPlus, Inbox, ScrollText, Settings, Shapes, Trash2, Workflow } from "lucide-react";
+import { AppWindow, Copy, Files, FolderOpen, FolderPlus, Inbox, ScrollText, Settings, Shapes, Trash2, Workflow } from "lucide-react";
+import { openMiniWindow } from "@/features/palette/command-palette";
 import { db } from "@/lib/db";
 import { pickDirectory } from "@/lib/fs-access";
 import { cn } from "@/lib/utils";
 import { useIndexing } from "@/stores/indexing";
 import { useUI } from "@/stores/ui";
+import { useActiveRoot } from "@/hooks/use-active-root";
 
 export const NAV = [
   { to: "/review", label: "Needs Review", icon: Inbox },
@@ -19,9 +21,13 @@ export const NAV = [
 ] as const;
 
 export function Sidebar() {
-  const needsReview = useLiveQuery(() => db.files.where("status").equals("needs_review").count(), [], 0);
+  const activeRootId = useActiveRoot()?.id ?? null;
+  const needsReview = useLiveQuery(
+    async () => (activeRootId === null ? 0 : (await db.files.where("rootId").equals(activeRootId).filter((f) => f.status === "needs_review" || (f.flags.includes("suggested_delete") && f.status !== "trashed")).count())),
+    [activeRootId],
+    0,
+  );
   const roots = useLiveQuery(() => db.roots.orderBy("addedAt").toArray(), [], []);
-  const activeRootId = useUI((s) => s.activeRootId);
   const setActiveRootId = useUI((s) => s.setActiveRootId);
   const connectFolder = useIndexing((s) => s.connectFolder);
 
@@ -84,6 +90,10 @@ export function Sidebar() {
           ))}
         </div>
       </div>
+      <button onClick={openMiniWindow} className="flex items-center gap-2 border-t px-5 py-3 text-xs text-muted hover:bg-surface-2 hover:text-text" title="Compact window with drop zone and agent">
+        <AppWindow className="size-4" />
+        Mini mode
+      </button>
     </aside>
   );
 }

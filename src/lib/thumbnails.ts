@@ -47,6 +47,21 @@ async function render(file: FileRecord): Promise<string | null> {
   return thumb ? URL.createObjectURL(thumb) : null;
 }
 
+/** A ≤512px JPEG for the AI. Full files are never sent anywhere. */
+export async function makeAIThumbnail(file: FileRecord): Promise<Blob | null> {
+  if (!canThumbnail(file.ext) || file.ext === "svg") return null;
+  const blob = await getFile(file);
+  if (!blob) return null;
+  const key = `ai:${file.id}:${file.mtime}`;
+  return withSlot(
+    () =>
+      new Promise<Blob | null>((resolve) => {
+        waiting.set(key, resolve);
+        getWorker().postMessage({ key, file: blob, size: 512, type: "image/jpeg" } satisfies ThumbRequest);
+      }),
+  );
+}
+
 /** Returns an object URL for a small thumbnail, or null if the file can't be previewed. Cached per session. */
 export function getThumbnail(file: FileRecord): Promise<string | null> {
   if (!canThumbnail(file.ext)) return Promise.resolve(null);

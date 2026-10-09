@@ -3,6 +3,7 @@ import type { FileRecord } from "@/lib/db";
 import { formatBytes, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "./file-icon";
+import { setDragFiles } from "@/lib/dnd";
 import type { ItemHandlers, SortKey, SortState } from "./file-browser";
 
 interface Props extends ItemHandlers {
@@ -16,7 +17,8 @@ interface Props extends ItemHandlers {
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: "name", label: "Name" },
   { key: "path", label: "Folder" },
-  { key: "kind", label: "Type", className: "w-28" },
+  { key: "category", label: "Category", className: "w-36" },
+  { key: "kind", label: "Type", className: "w-20" },
   { key: "size", label: "Size", className: "w-24 text-right" },
   { key: "mtime", label: "Modified", className: "w-44" },
 ];
@@ -49,6 +51,8 @@ export function FileTable({ files, selected, focusId, sort, onSort, onItemClick,
               key={file.id}
               id={`file-${file.id}`}
               aria-selected={isSelected}
+              draggable
+              onDragStart={(e) => setDragFiles(e, isSelected ? [...selected] : [file.id])}
               onClick={(e) => onItemClick(file.id, e)}
               onDoubleClick={() => onItemDoubleClick(file.id)}
               className={cn(
@@ -68,7 +72,11 @@ export function FileTable({ files, selected, focusId, sort, onSort, onItemClick,
               <td className="truncate px-4 py-2 font-mono text-xs text-muted" title={folderOf(file.path)}>
                 {folderOf(file.path)}
               </td>
-              <td className="px-4 py-2 capitalize text-muted">{file.ext ? file.ext.toUpperCase() : file.kind}</td>
+              <td className="truncate px-4 py-2 text-muted" title={file.caption}>
+                {file.category ?? ""}
+                {file.flags.length > 0 && <span className="ml-1 text-warning">· {file.flags.length} flag{file.flags.length > 1 ? "s" : ""}</span>}
+              </td>
+              <td className="px-4 py-2 text-muted">{file.ext ? file.ext.toUpperCase() : file.kind}</td>
               <td className="px-4 py-2 text-right tabular-nums text-muted">{formatBytes(file.size)}</td>
               <td className="px-4 py-2 tabular-nums text-muted">{formatDate(file.mtime)}</td>
             </tr>

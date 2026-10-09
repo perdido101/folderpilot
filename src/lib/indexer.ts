@@ -1,4 +1,4 @@
-import { db, type NewFileRecord } from "./db";
+import { db, type FileRecord, type NewFileRecord } from "./db";
 import { extOf, kindOf, shouldSkip } from "./file-kinds";
 
 export interface IndexProgress {
@@ -28,10 +28,24 @@ async function* walk(dir: FileSystemDirectoryHandle, prefix: string, signal: Abo
 
 const BATCH_SIZE = 200;
 
+/** Analysis fields that become stale when a file's content changes. */
+const RESET: Partial<FileRecord> = {
+  analyzedLocally: false,
+  sha256: undefined,
+  dhash: undefined,
+  blurScore: undefined,
+  brightness: undefined,
+  width: undefined,
+  height: undefined,
+  exif: undefined,
+  textExcerpt: undefined,
+};
+
 /**
- * Recursively index a folder into Dexie. Replaces any previous index for this root.
+ * Recursively index a folder into Dexie. Unchanged files (same path, size and mtime) keep their
+ * analysis and AI results; changed files are re-queued; files that disappeared are dropped from the index.
  * Directory walking is async I/O (not CPU-bound), so it stays on the main thread;
- * hashing/image analysis in later phases goes to Web Workers.
+ * hashing and image analysis run in Web Workers.
  */
 export async function indexRoot(
   rootId: number,
@@ -39,14 +53,16 @@ export async function indexRoot(
   onProgress: (p: IndexProgress) => void,
   signal: AbortSignal,
 ): Promise<number> {
-  await db.files.where("rootId").equals(rootId).delete();
-
+  const existing = new Map((await db.files.where("rootId").equals(rootId).toArray()).map((f) => [f.path, f]));
+  const seen = new Set<number>();
   const progress: IndexProgress = { scanned: 0, dirs: 0, currentPath: "" };
-  let batch: NewFileRecord[] = [];
+  let adds: NewFileRecord[] = [];
+  let updates: { key: number; changes: Partial<FileRecord> }[] = [];
   const flush = async () => {
-    if (batch.length === 0) return;
-    await db.files.bulkAdd(batch);
-    batch = [];
+    if (adds.length) await db.files.bulkAdd(adds);
+    if (updates.length) await db.files.bulkUpdate(updates);
+    adds = [];
+    updates = [];
   };
 
   for await (const entry of walk(root, "", signal, () => progress.dirs++)) {
@@ -56,22 +72,30 @@ export async function indexRoot(
     } catch {
       continue; // locked or vanished mid-scan
     }
-    const ext = extOf(file.name);
-    batch.push({
-      rootId,
-      path: entry.path,
-      name: file.name,
-      ext,
-      kind: kindOf(ext),
-      size: file.size,
-      mtime: file.lastModified,
-      status: "indexed",
-      flags: [],
-      tags: [],
-    });
+    const prev = existing.get(entry.path);
+    if (prev) {
+      seen.add(prev.id);
+      if (prev.size !== file.size || prev.mtime !== file.lastModified || prev.status === "trashed") {
+        updates.push({ key: prev.id, changes: { ...RESET, size: file.size, mtime: file.lastModified, status: "indexed", trashedFrom: undefined } });
+      }
+    } else {
+      const ext = extOf(file.name);
+      adds.push({
+        rootId,
+        path: entry.path,
+        name: file.name,
+        ext,
+        kind: kindOf(ext),
+        size: file.size,
+        mtime: file.lastModified,
+        status: "indexed",
+        flags: [],
+        tags: [],
+      });
+    }
     progress.scanned++;
     progress.currentPath = entry.path;
-    if (batch.length >= BATCH_SIZE) {
+    if (adds.length + updates.length >= BATCH_SIZE || progress.scanned % BATCH_SIZE === 0) {
       await flush();
       onProgress({ ...progress });
     }
@@ -80,6 +104,9 @@ export async function indexRoot(
   onProgress({ ...progress });
 
   if (!signal.aborted) {
+    // Files that are gone from disk leave the index. Trashed files live in the (skipped) trash folder.
+    const gone = [...existing.values()].filter((f) => !seen.has(f.id) && f.status !== "trashed").map((f) => f.id);
+    await db.files.bulkDelete(gone);
     await db.roots.update(rootId, { indexedAt: Date.now(), fileCount: progress.scanned });
   }
   return progress.scanned;

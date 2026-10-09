@@ -76,3 +76,19 @@
     transform: translateX(300%);
   }
 }
+
+/* Per-file processing shimmer while the AI works. */
+.fp-shimmer {
+  background: linear-gradient(100deg, transparent 20%, rgb(var(--accent) / 0.14) 50%, transparent 80%);
+  background-size: 200% 100%;
+  animation: fp-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes fp-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}

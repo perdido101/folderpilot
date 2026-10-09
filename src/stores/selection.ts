@@ -7,11 +7,13 @@ interface SelectionState {
   /** Keyboard focus; Space opens quick-look on it. */
   focusId: number | null;
   quickLookId: number | null;
+  /** The list quick-look navigates through with ←/→. */
+  quickLookIds: readonly number[];
   click: (id: number, orderedIds: readonly number[], mods: { shift: boolean; toggle: boolean }) => void;
   selectAll: (ids: readonly number[]) => void;
   clear: () => void;
   setFocus: (id: number | null) => void;
-  openQuickLook: (id: number | null) => void;
+  openQuickLook: (id: number | null, ids?: readonly number[]) => void;
 }
 
 export const useSelection = create<SelectionState>()((set, get) => ({
@@ -19,6 +21,7 @@ export const useSelection = create<SelectionState>()((set, get) => ({
   anchorId: null,
   focusId: null,
   quickLookId: null,
+  quickLookIds: [],
 
   click: (id, orderedIds, { shift, toggle }) => {
     const { selected, anchorId } = get();
@@ -45,5 +48,5 @@ export const useSelection = create<SelectionState>()((set, get) => ({
   selectAll: (ids) => set({ selected: new Set(ids) }),
   clear: () => set({ selected: new Set(), anchorId: null }),
   setFocus: (focusId) => set({ focusId }),
-  openQuickLook: (quickLookId) => set({ quickLookId }),
+  openQuickLook: (quickLookId, ids) => set(ids ? { quickLookId, quickLookIds: ids } : { quickLookId }),
 }));
