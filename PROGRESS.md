@@ -5,7 +5,7 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | Monorepo + foundations (db, auth/orgs/roles, API, worker, web shell, i18n EN/EL, dev services, CI) | ✅ done |
+| 1 | Monorepo + foundations (db, auth/orgs/roles, API, worker, web shell, i18n (English), dev services, CI) | ✅ done |
 | 2 | Core engine: StorageAdapter, plan engine, audit, undo, trash/restore, conflict checks; `local-browser` adapter | ⏭ next |
 | 3–14 | see `CLAUDE.md` §20 | — |
 
@@ -47,20 +47,20 @@ e2e/            Playwright smoke tests
   Agent/Details panel). Items whose backend arrives later show an honest "Available in phase N" state.
   - **"Use on this computer without an account"** keeps the full prototype working locally (folder drop, analysis, AI, rules,
     agent, plans, undo, trash). The GitHub Pages build is this mode only (`VITE_LOCAL_ONLY=1`).
-  - **i18n**: every string in `apps/web/src/locales/{en,el}/*.json` (one file per feature), typed keys, Greek translation,
-    language switcher. Plans/audit text are written in the active UI language; prompts sent to the AI stay in English.
+  - **i18n**: every string in `apps/web/src/locales/en/*.json` (one file per feature), typed keys. English only for now
+    (Greek deferred at your request; adding it back is a new `locales/el/` folder, no component changes).
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
 ## Verified
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
-- `pnpm test` — 121 unit tests: core 46 (rules, permissions, file kinds), analysis 21 (dHash/duplicates), ai 12 (JSON parsing),
-  web 29 (locale parity EN↔EL + placeholders, `moveFile`, local engine/undo, search), server 11 (env, crypto, rate limit), worker 2.
+- `pnpm test` — 119 unit tests: core 46 (rules, permissions, file kinds), analysis 21 (dHash/duplicates), ai 12 (JSON parsing),
+  web (locale checks, `moveFile`, local engine/undo, search), server 11 (env, crypto, rate limit), worker 2.
 - `pnpm test:integration` (real Postgres + Redis) — db 7 (migrations, append-only trigger, undo link + view, pgvector round-trip,
   `scoped()` isolation), server 9 (health, security headers, sign-up → org → owner role, invited viewer gets viewer permissions only, non-members get 404,
   features off when unconfigured, cross-site POST rejected), worker 1 (heartbeat job). Booting with only Postgres + Redis is a unit test.
-- `pnpm test:e2e` (Playwright, Chromium) — 2 smoke tests: sign up → create org → shell → invite member → Greek → dark theme → sign out;
+- `pnpm test:e2e` (Playwright, Chromium) — 2 smoke tests: sign up → create org → shell → invite member → dark theme → sign out;
   device mode opens a folder without an account.
 - `pnpm services:up && pnpm db:migrate && pnpm db:seed && pnpm dev` — web :5173, API :3000 (health ok), worker heartbeat logged.
 
@@ -79,4 +79,5 @@ e2e/            Playwright smoke tests
 - "This device" mode still uses the prototype's browser engine (Dexie); phase 2 moves it onto the shared StorageAdapter + core engine.
 - `pnpm setup` is a built-in pnpm command, so the env script is `pnpm setup:env`.
 - Docker Hub may rate-limit image pulls (429); `docs/SETUP.md` → Troubleshooting has the mirror workaround.
+- Greek UI translation is deferred (removed for now). The agent still replies in whatever language the user writes.
 - The repo isn't fully Prettier-formatted yet, so CI doesn't run a format check.

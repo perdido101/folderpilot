@@ -8,7 +8,6 @@ import { useSettings } from "@/lib/settings";
 import { useUI } from "@/stores/ui";
 import { AccountMenu } from "./account-menu";
 import { AiStatusPill } from "./ai-status-pill";
-import { LanguageSwitcher } from "./language-switcher";
 import { Notifications } from "./notifications";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -71,7 +70,6 @@ export function TopBar() {
         <Button variant="ghost" size="icon-sm" onClick={() => setShortcutsOpen(true)} aria-label={t("shortcuts.label")} title={t("shortcuts.title")}>
           <Keyboard />
         </Button>
-        <LanguageSwitcher />
         <ThemeToggle />
         <Button variant="ghost" size="icon-sm" onClick={toggleAgentPanel} aria-label={agentPanelOpen ? t("panel.hide") : t("panel.show")} aria-pressed={agentPanelOpen}>
           <PanelRight />

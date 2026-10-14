@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
-import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col bg-bg">
       <header className="flex items-center justify-end gap-1 p-3">
-        <LanguageSwitcher />
         <ThemeToggle />
       </header>
       <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-6 sm:items-center sm:pt-0">

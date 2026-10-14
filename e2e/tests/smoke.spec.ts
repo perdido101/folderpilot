@@ -10,7 +10,7 @@ async function signUp(page: Page, email: string) {
   await page.getByRole("button", { name: "Create account" }).click();
 }
 
-test("sign up → create organization → app shell, language and theme", async ({ page }) => {
+test("sign up → create organization → app shell and theme", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/sign-in/);
 
@@ -34,20 +34,14 @@ test("sign up → create organization → app shell, language and theme", async 
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   await expect(page.getByText("Pending")).toBeVisible();
 
-  // Greek.
-  await page.getByRole("button", { name: "Language" }).click();
-  await page.getByRole("menuitemradio", { name: "Ελληνικά" }).click();
-  await expect(page.getByRole("navigation", { name: "Ενότητες" }).getByRole("link", { name: "Όλα τα αρχεία" })).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("lang", "el");
-
   // Dark theme.
-  await page.getByRole("button", { name: "Εμφάνιση" }).click();
-  await page.getByRole("menuitemradio", { name: "Σκοτεινό" }).click();
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
-  // Sign out returns to sign-in (in Greek).
-  await page.getByRole("button", { name: "Οργανισμός και λογαριασμός" }).click();
-  await page.getByRole("menuitem", { name: "Αποσύνδεση" }).click();
+  // Sign out returns to sign-in.
+  await page.getByRole("button", { name: "Organization and account" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
