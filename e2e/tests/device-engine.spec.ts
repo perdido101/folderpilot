@@ -116,3 +116,27 @@ test("a file edited after the plan was made is a conflict: nothing is overwritte
   await expect.poll(() => diskPaths(page, folder)).toEqual(["Sorted/a.txt", "Sorted/b.txt", "Sorted/report.txt"]);
   await expect(page.getByText("1 change needs your decision")).toHaveCount(0);
 });
+
+test("local analysis in the browser (shared analyzer) finds exact duplicates", async ({ page }) => {
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: "Use on this computer without an account" }).click();
+  const folder = `analysis-${Date.now()}`;
+  await page.evaluate(async (name) => {
+    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle(name, { create: true });
+    for (const [file, text] of [
+      ["report.txt", "quarterly numbers"],
+      ["report (1).txt", "quarterly numbers"],
+      ["other.txt", "something else"],
+    ]) {
+      const w = await (await dir.getFileHandle(file, { create: true })).createWritable();
+      await w.write(text);
+      await w.close();
+    }
+    (window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker = async () => dir;
+  }, folder);
+  await page.getByRole("button", { name: "Choose folder" }).click();
+  await expect(page.getByText(/3 files/)).toBeVisible();
+  await page.getByRole("link", { name: "Duplicates & Bad Files" }).click();
+  await expect(page.getByText("3 of 3 files analyzed locally")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("report (1).txt").first()).toBeVisible();
+});

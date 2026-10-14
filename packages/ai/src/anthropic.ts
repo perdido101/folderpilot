@@ -3,7 +3,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod/v4";
 import { describeMeta, insightSystemPrompt } from "./prompts";
 import { parseInsight } from "./parse";
-import { AIError, type AIProvider, type AnalyzeContext, type ChatMessage, type ChatResult, type FileMeta, type ToolDef } from "./types";
+import { AIError, type AIProvider, type AnalyzeContext, type ChatEvent, type ChatMessage, type ChatOpts, type FileMeta, type InsightResult, type ToolDef, type Usage } from "./types";
 import { blobToBase64, trimSlash } from "./util";
 import type { AISettings } from "./config";
 
@@ -13,41 +13,76 @@ const InsightWire = z.object({
   tags: z.array(z.string()),
   caption: z.string(),
   suggestedName: z.string(),
-  client: z.string().nullable(),
+  entities: z.object({ client: z.string().nullable(), date: z.string().nullable(), amount: z.string().nullable(), docType: z.string().nullable() }),
   confidence: z.number(),
   reason: z.string(),
 });
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
-/** Claude API (or a Bedrock/Vertex proxy that speaks the Messages API), called directly from the browser. */
+/** The part of an Anthropic client we use; the Bedrock (Mantle) and Vertex clients expose the same surface. */
+export type AnthropicClientLike = Pick<Anthropic, "beta">;
+
+/** Models that accept server-side refusal fallbacks (Claude API only). */
+const FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]);
+
+export interface AnthropicProviderOptions {
+  client: AnthropicClientLike;
+  /** Model for file analysis. */
+  model: string;
+  /** Model for the agent chat (defaults to `model`). */
+  chatModel?: string;
+  label: string;
+  cacheKeyPrefix: string;
+  /** Only on the first-party Claude API (not Bedrock/Vertex/proxies). */
+  serverFallbacks: boolean;
+}
+
+const usageOf = (u: { input_tokens: number; output_tokens: number }): Usage => ({ inputTokens: u.input_tokens, outputTokens: u.output_tokens });
+
+/** Claude through the Anthropic SDK: the Claude API, a proxy, Bedrock, Vertex, or FolderPilot AI (our key, server-side). */
 export class AnthropicProvider implements AIProvider {
   readonly label: string;
-  private readonly client: Anthropic;
-  /** Server-side refusal fallbacks are only available on the first-party Claude API. */
-  private readonly fallback: { betas: string[]; fallbacks: "default" } | Record<string, never>;
+  readonly cacheKey: string;
+  private readonly client: AnthropicClientLike;
 
-  constructor(private readonly cfg: AISettings["anthropic"]) {
-    const baseURL = trimSlash(cfg.baseUrl || "https://api.anthropic.com");
-    this.label = `Your cloud: ${cfg.name || "Claude"}`;
-    // dangerouslyAllowBrowser sends `anthropic-dangerous-direct-browser-access: true`.
-    // The key is the user's own and stays in this browser (IndexedDB).
-    this.client = new Anthropic({ apiKey: cfg.apiKey, baseURL, dangerouslyAllowBrowser: true });
-    this.fallback = new URL(baseURL).hostname === "api.anthropic.com" ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {};
+  constructor(private readonly opts: AnthropicProviderOptions) {
+    this.client = opts.client;
+    this.label = opts.label;
+    this.cacheKey = `${opts.cacheKeyPrefix}:${opts.model}`;
   }
 
-  private async insight(content: Anthropic.Beta.BetaContentBlockParam[], ctx: AnalyzeContext) {
+  /** A customer's own Claude API key, called directly (also from the browser). */
+  static direct(cfg: AISettings["anthropic"]): AnthropicProvider {
+    const baseURL = trimSlash(cfg.baseUrl || "https://api.anthropic.com");
+    // dangerouslyAllowBrowser sends `anthropic-dangerous-direct-browser-access: true`; the key is the user's own.
+    const client = new Anthropic({ apiKey: cfg.apiKey, baseURL, dangerouslyAllowBrowser: true });
+    return new AnthropicProvider({
+      client,
+      model: cfg.model,
+      label: `Your cloud: ${cfg.name || "Claude"}`,
+      cacheKeyPrefix: "anthropic",
+      serverFallbacks: new URL(baseURL).hostname === "api.anthropic.com",
+    });
+  }
+
+  private fallback(model: string) {
+    return this.opts.serverFallbacks && FALLBACK_MODELS.has(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {};
+  }
+
+  private async insight(content: Anthropic.Beta.BetaContentBlockParam[], ctx: AnalyzeContext): Promise<InsightResult> {
+    const model = this.opts.model;
     const res = await this.client.beta.messages.parse({
-      model: this.cfg.model,
+      model,
       max_tokens: 16000,
       system: insightSystemPrompt(ctx),
       messages: [{ role: "user", content }],
       output_config: { format: betaZodOutputFormat(InsightWire), effort: "low" },
-      ...this.fallback,
+      ...this.fallback(model),
     });
     if (res.stop_reason === "refusal") throw new AIError("The model declined to describe this file.");
     if (!res.parsed_output) throw new AIError("The model didn't return valid JSON.");
-    return parseInsight(res.parsed_output);
+    return { insight: parseInsight(res.parsed_output), usage: usageOf(res.usage), model: res.model };
   }
 
   async describeImage(thumb: Blob, meta: FileMeta, ctx: AnalyzeContext) {
@@ -65,7 +100,7 @@ export class AnthropicProvider implements AIProvider {
     return this.insight([{ type: "text", text: `${describeMeta(meta)}\n\nExtracted text:\n${text || "(none)"}` }], ctx);
   }
 
-  async chat(system: string, messages: ChatMessage[], tools: ToolDef[]): Promise<ChatResult> {
+  async *chat(system: string, messages: ChatMessage[], tools: ToolDef[], opts: ChatOpts = {}): AsyncGenerator<ChatEvent> {
     const wire: Anthropic.Beta.BetaMessageParam[] = [];
     for (const m of messages) {
       if (m.role === "user") {
@@ -81,28 +116,38 @@ export class AnthropicProvider implements AIProvider {
         else wire.push({ role: "user", content: [block] });
       }
     }
-    const res = await this.client.beta.messages.create({
-      model: this.cfg.model,
-      max_tokens: 16000,
-      system,
-      tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters as Anthropic.Beta.BetaTool.InputSchema })),
-      messages: wire,
-      output_config: { effort: "medium" },
-      ...this.fallback,
-    });
+    const model = this.opts.chatModel ?? this.opts.model;
+    const stream = this.client.beta.messages.stream(
+      {
+        model,
+        max_tokens: 64000,
+        system,
+        ...(tools.length ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters as Anthropic.Beta.BetaTool.InputSchema })) } : {}),
+        messages: wire,
+        output_config: { effort: "medium" },
+        ...this.fallback(model),
+      },
+      opts.signal ? { signal: opts.signal } : undefined,
+    );
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") yield { type: "text", text: event.delta.text };
+    }
+    const res = await stream.finalMessage();
     if (res.stop_reason === "refusal") throw new AIError("The model declined this request.");
-    const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
     const toolCalls = res.content.flatMap((b) => (b.type === "tool_use" ? [{ id: b.id, name: b.name, input: (b.input ?? {}) as Record<string, unknown> }] : []));
-    return { content: text, toolCalls, raw: res.content };
+    if (res.stop_reason === "max_tokens" && toolCalls.length) throw new AIError("The reply was cut off before the tool call finished.");
+    const content = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+    yield { type: "done", content, toolCalls, raw: res.content, usage: usageOf(res.usage), model: res.model };
   }
 
   async test() {
+    const model = this.opts.model;
     const res = await this.client.beta.messages.create({
-      model: this.cfg.model,
+      model,
       max_tokens: 1024,
       messages: [{ role: "user", content: "Reply with the single word OK." }],
       output_config: { effort: "low" },
-      ...this.fallback,
+      ...this.fallback(model),
     });
     const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
     return `Connected · ${res.model} replied “${text.trim().slice(0, 20)}”`;

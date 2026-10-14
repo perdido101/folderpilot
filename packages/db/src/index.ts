@@ -3,4 +3,7 @@ export * from "./scoped";
 export * from "./schema";
 export { runMigrations, MIGRATIONS_DIR } from "./migrate";
 export { createTestDatabase, type TestDatabase } from "./testing";
-export { createPgEngineStore } from "./engine-store";
+export { createPgEngineStore, toEngineFile, toRule } from "./engine-store";
+export * from "./crypto";
+export * from "./org-settings";
+export * from "./ai-service";

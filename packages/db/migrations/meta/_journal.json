@@ -29,6 +29,13 @@
       "when": 1792004882123,
       "tag": "0003_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792015136648,
+      "tag": "0004_analysis_ai",
+      "breakpoints": true
     }
   ]
 }

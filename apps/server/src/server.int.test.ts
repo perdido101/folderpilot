@@ -2,33 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase, type TestDatabase } from "@folderpilot/db";
 import { createApp } from "./app";
 import { createDeps } from "./deps";
+import { TestClient } from "./testing/client";
 
-const ORIGIN = "http://localhost:5173";
 let t: TestDatabase;
 let runtime: ReturnType<typeof createDeps>;
 let app: ReturnType<typeof createApp>;
 
-/** Minimal cookie jar around app.request(). */
-class Client {
-  private cookies = new Map<string, string>();
-  async req(path: string, init: { method?: string; body?: unknown } = {}) {
-    const headers: Record<string, string> = { Origin: ORIGIN, "x-forwarded-for": "10.0.0.1" };
-    if (this.cookies.size) headers.cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
-    if (init.body !== undefined) headers["content-type"] = "application/json";
-    const res = await app.request(path, { method: init.method ?? (init.body ? "POST" : "GET"), headers, body: init.body ? JSON.stringify(init.body) : undefined });
-    for (const c of res.headers.getSetCookie()) {
-      const [pair] = c.split(";");
-      const [k, ...v] = pair!.split("=");
-      this.cookies.set(k!, v.join("="));
-    }
-    return res;
-  }
-  async json<T>(path: string, init?: { method?: string; body?: unknown }): Promise<{ status: number; body: T }> {
-    const res = await this.req(path, init);
-    return { status: res.status, body: (await res.json()) as T };
-  }
-  signUp(email: string, name: string) {
-    return this.json("/api/auth/sign-up/email", { body: { email, name, password: "correct-horse-battery" } });
+class Client extends TestClient {
+  constructor() {
+    super(() => app);
   }
 }
 

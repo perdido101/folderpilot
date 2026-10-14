@@ -1,5 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { DEFAULT_AI_SETTINGS, type AISettings } from "@folderpilot/ai";
+import { DEFAULT_AI_SETTINGS, withDefaults, type AISettings } from "@folderpilot/ai";
 import { DEFAULT_THRESHOLDS, type Thresholds } from "@folderpilot/core";
 import { db } from "./db";
 
@@ -23,13 +23,7 @@ const KEY = "app";
 function merge(stored: Partial<AppSettings> | undefined): AppSettings {
   const s = stored ?? {};
   return {
-    ai: {
-      ...DEFAULT_SETTINGS.ai,
-      ...s.ai,
-      ollama: { ...DEFAULT_SETTINGS.ai.ollama, ...s.ai?.ollama },
-      openai: { ...DEFAULT_SETTINGS.ai.openai, ...s.ai?.openai },
-      anthropic: { ...DEFAULT_SETTINGS.ai.anthropic, ...s.ai?.anthropic },
-    },
+    ai: withDefaults(s.ai),
     thresholds: { ...DEFAULT_SETTINGS.thresholds, ...s.thresholds },
     autoAnalyzeWithAI: s.autoAnalyzeWithAI ?? DEFAULT_SETTINGS.autoAnalyzeWithAI,
   };

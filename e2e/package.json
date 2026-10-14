@@ -10,9 +10,10 @@
   "devDependencies": {
     "@folderpilot/db": "workspace:*",
     "@playwright/test": "1.56.1",
+    "@types/node": "^22.20.5",
+    "jpeg-js": "^0.4.4",
     "postgres": "^3.4.7",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.3",
-    "@types/node": "^22.20.5"
+    "typescript": "^5.9.3"
   }
 }

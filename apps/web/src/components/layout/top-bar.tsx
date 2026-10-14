@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Command, Keyboard, PanelRight, Search, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { createProvider } from "@folderpilot/ai";
+import { useBrowserProvider } from "@/lib/ai/provider";
 import { Button, Input, cn } from "@folderpilot/ui";
 import { useSettings } from "@/lib/settings";
 import { useUI } from "@/stores/ui";
@@ -15,7 +15,7 @@ export function TopBar() {
   const { t } = useTranslation("shell");
   const { search, setSearch, agentPanelOpen, toggleAgentPanel, semanticSearch, setSemanticSearch, setPaletteOpen, setShortcutsOpen } = useUI();
   const settings = useSettings();
-  const canEmbed = Boolean(createProvider(settings.ai)?.embed);
+  const canEmbed = Boolean(useBrowserProvider(settings.ai)?.embed);
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);

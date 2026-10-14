@@ -5,11 +5,25 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": { "@folderpilot/core": "workspace:*", "@anthropic-ai/sdk": "^0.133.0", "zod": "^3.25.76" },
-  "devDependencies": { "typescript": "^5.9.3", "vitest": "^3.2.7" }
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.35.0",
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@anthropic-ai/vertex-sdk": "^0.21.0",
+    "@folderpilot/core": "workspace:*",
+    "google-auth-library": "^10.9.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
 }

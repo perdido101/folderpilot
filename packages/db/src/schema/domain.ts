@@ -112,6 +112,12 @@ export const files = pgTable(
     suggestedName: text("suggested_name"),
     entities: jsonb("entities").$type<FileEntities>(),
     confidence: real("confidence"),
+    /** One sentence from the AI: why this category. */
+    aiReason: text("ai_reason"),
+    /** Local analysis (hash, image metrics, EXIF, text) finished for the current version. */
+    analyzedAt: ts("analyzed_at"),
+    /** AI insight finished for the current version. */
+    aiAnalyzedAt: ts("ai_analyzed_at"),
     status: fileStatus("status").notNull().default("indexed"),
     flags: text("flags").array().notNull().default(sql`'{}'::text[]`),
     /** Why a file was flagged (e.g. the agent's reason for suggested_delete). */
@@ -338,6 +344,44 @@ export const aiUsage = pgTable(
     costMicros: bigint("cost_micros", { mode: "number" }).notNull().default(0),
   },
   (t) => [index("ai_usage_org_at_idx").on(t.organizationId, t.at)],
+);
+
+export interface OrgThresholds {
+  nearDuplicateDistance: number;
+  blur: number;
+  dark: number;
+  tiny: number;
+  confidence: number;
+}
+
+/**
+ * One row per organization: AI provider (non-secret part as JSON, secrets AES-256-GCM encrypted),
+ * analysis thresholds and the monthly AI file budget.
+ */
+export const orgSettings = pgTable("org_settings", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  ai: jsonb("ai").$type<Record<string, unknown>>().notNull().default({}),
+  aiSecretsEncrypted: text("ai_secrets_encrypted"),
+  thresholds: jsonb("thresholds").$type<Partial<OrgThresholds>>().notNull().default({}),
+  aiMonthlyFileBudget: integer("ai_monthly_file_budget").notNull().default(1000),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Same content + same provider/model = same insight: never pay for analyzing a file twice. */
+export const aiInsightCache = pgTable(
+  "ai_insight_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: orgId(),
+    sha256: text("sha256").notNull(),
+    cacheKey: text("cache_key").notNull(),
+    model: text("model").notNull(),
+    insight: jsonb("insight").$type<Record<string, unknown>>().notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ai_cache_org_sha_key_uq").on(t.organizationId, t.sha256, t.cacheKey)],
 );
 
 export const subscriptions = pgTable("subscriptions", {

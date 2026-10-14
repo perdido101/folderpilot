@@ -3,13 +3,14 @@ import { getSettings } from "../settings";
 import { makeAIThumbnail } from "../thumbnails";
 import { matchesRule } from "@folderpilot/core";
 import { useAnalysis } from "@/stores/analysis";
-import { createProvider, type AnalyzeContext, type FileMeta } from "@folderpilot/ai";
+import type { AnalyzeContext, FileMeta } from "@folderpilot/ai";
+import { browserProvider } from "./provider";
 
 const DEFAULT_CATEGORIES = ["Invoices", "Receipts", "Contracts", "NDAs", "Bank statements", "Photos", "Screenshots", "Scans", "Notes", "Spreadsheets", "Archives", "Manuals"];
 const CONCURRENCY = 2;
 
 export function fileMeta(f: FileRecord): FileMeta {
-  return { name: f.name, path: f.path, ext: f.ext, size: f.size, mtime: f.mtime, width: f.width, height: f.height, exif: f.exif, flags: f.flags };
+  return { name: f.name, path: f.path, ext: f.ext, size: f.size, mtime: f.mtime, width: f.width, height: f.height, exif: f.exif, flags: f.flags, sha256: f.sha256 };
 }
 
 export async function analyzeContext(rootId: number): Promise<AnalyzeContext> {
@@ -29,7 +30,7 @@ export async function analyzeContext(rootId: number): Promise<AnalyzeContext> {
  */
 export async function runAIAnalysis(rootId: number, onlyIds?: number[]): Promise<{ analyzed: number; review: number; failed: number }> {
   const settings = await getSettings();
-  const provider = createProvider(settings.ai);
+  const provider = browserProvider(settings.ai);
   if (!provider) throw new Error("Connect an AI in Settings first.");
   const store = useAnalysis.getState();
   if (store.phase !== "idle") throw new Error("Analysis is already running.");
@@ -53,7 +54,7 @@ export async function runAIAnalysis(rootId: number, onlyIds?: number[]): Promise
       useAnalysis.getState().markInFlight(f.id, true);
       try {
         const thumb = f.kind === "image" ? await makeAIThumbnail(f) : null;
-        const insight = thumb ? await provider.describeImage(thumb, fileMeta(f), ctx) : await provider.describeText(f.textExcerpt ?? "", fileMeta(f), ctx);
+        const { insight } = thumb ? await provider.describeImage(thumb, fileMeta(f), ctx) : await provider.describeText(f.textExcerpt ?? "", fileMeta(f), ctx);
         const ruleCategory = rules.find((r) => matchesRule(f, r) && r.actions.some((a) => a.type === "set_category"))?.actions.find((a) => a.type === "set_category")?.value;
         const low = insight.confidence < settings.thresholds.confidence && !ruleCategory;
         await db.files.update(f.id, {
@@ -62,7 +63,7 @@ export async function runAIAnalysis(rootId: number, onlyIds?: number[]): Promise
           tags: [...new Set([...f.tags, ...insight.tags])],
           caption: insight.caption,
           suggestedName: insight.suggestedName,
-          client: insight.client ?? undefined,
+          client: insight.entities.client ?? undefined,
           confidence: insight.confidence,
           aiReason: insight.reason,
           status: low ? "needs_review" : "analyzed",

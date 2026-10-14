@@ -1,0 +1,85 @@
+{
+  "badges": {
+    "readOnly": "read-only",
+    "server": "server"
+  },
+  "header": {
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "analyzed": "{{done}} of {{total}} analyzed",
+    "aiAnalyzed": "{{done}} described by AI",
+    "needsReview": "{{count}} need review",
+    "lastScan": "Last scan {{when}}",
+    "neverScanned": "Not scanned yet",
+    "scan": "Scan & analyze",
+    "scanning": "Working…",
+    "scanQueued": "Scan started. Files appear and get analyzed as the worker goes.",
+    "readOnlyNote": "This folder is read-only for now: FolderPilot can analyze and categorize, but can't move, rename or trash files here yet (Private mode, phase 9).",
+    "unavailable": "This space can't be opened on the server: {{reason}}",
+    "noWorker": "Nothing is happening? Make sure the worker runs (`pnpm dev` starts it)."
+  },
+  "files": {
+    "search": "Search name or path",
+    "empty": "No files yet. Click “Scan & analyze”.",
+    "noMatch": "No files match.",
+    "columns": {
+      "name": "Name",
+      "category": "Category",
+      "flags": "Flags",
+      "size": "Size"
+    },
+    "more": "Showing {{shown}} of {{total}}"
+  },
+  "review": {
+    "title": "Needs review",
+    "description": "The AI wasn't sure about these (confidence below your threshold). Accept its suggestion or pick the category yourself.",
+    "empty": "Nothing to review. 🎉",
+    "confidence": "{{value}}% sure",
+    "accept": "Accept",
+    "acceptAll": "Accept all ({{count}})",
+    "setCategory": "Set category",
+    "categoryPlaceholder": "Category",
+    "accepted_one": "Accepted {{count}} suggestion",
+    "accepted_other": "Accepted {{count}} suggestions",
+    "categorized_one": "Categorized {{count}} file",
+    "categorized_other": "Categorized {{count}} files"
+  },
+  "duplicates": {
+    "title": "Duplicates & Bad Files",
+    "description": "Found by local analysis (no AI). FolderPilot suggests which copy to keep; nothing is removed unless you trash it, and the Trash is recoverable.",
+    "exact": "Exact copies",
+    "near": "Look-alikes",
+    "keep": "Keep",
+    "copy": "Copy",
+    "bad": "Bad files",
+    "none": "No duplicates or bad files found.",
+    "review": "Review one by one",
+    "trashCopies": "Trash the copies",
+    "kept": "Kept",
+    "reviewMode": {
+      "title": "Review {{index}} of {{total}}",
+      "hint": "← Trash · → Keep · Esc to stop",
+      "trash": "Trash",
+      "keep": "Keep",
+      "done": "All reviewed."
+    }
+  },
+  "audit": {
+    "title": "Audit Log",
+    "description": "Every change in this space: who, what, before → after, and why. Undo never edits history — it adds a new entry.",
+    "empty": "No changes yet.",
+    "undo": "Undo",
+    "undoneBy": "undone by {{actor}}"
+  },
+  "results": {
+    "done": "{{summary}}",
+    "undo": "Undo",
+    "undone_one": "Undone · {{count}} change reverted",
+    "undone_other": "Undone · {{count}} changes reverted",
+    "failed": "{{count}} couldn't be changed: {{error}}"
+  },
+  "notYet": {
+    "title": "Not for server spaces yet",
+    "description": "This view works for folders on this device. For server spaces it arrives in phase {{phase}}."
+  }
+}

@@ -40,6 +40,10 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: optional,
   CLAMAV_HOST: optional,
   MCP_PUBLIC_URL: optional,
+  /** Development only: a folder on this machine shown as the read-only "Sample files (dev)" space. */
+  FP_DEV_SAMPLE_DIR: optional,
+  /** BullMQ key prefix; server and worker must match (tests use their own). */
+  FP_QUEUE_PREFIX: z.string().default("bull"),
 });
 
 export type Env = z.infer<typeof schema> & { BETTER_AUTH_SECRET: string; ENCRYPTION_KEY: string };

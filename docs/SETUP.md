@@ -10,7 +10,9 @@ This guide gets FolderPilot running locally and walks you through connecting eve
 | [Microsoft Entra app](#microsoft) | “Continue with Microsoft”, OneDrive/SharePoint | sign-in now · OneDrive in phase 8 |
 | [Dropbox app](#dropbox) | Dropbox (Connect mode) | phase 8 |
 | [S3-compatible bucket](#storage) (R2 / B2 / Hetzner) | FolderPilot Cloud storage | phase 7 |
-| [Anthropic API key](#anthropic) | “FolderPilot AI” (hosted default AI) | phase 3 |
+| [Anthropic API key](#anthropic) | “FolderPilot AI” (hosted default AI) | phase 3 ✅ |
+| [Your organization's AI](#org-ai) (Claude API / Bedrock / Vertex / OpenAI-compatible / Ollama) | AI for server spaces | phase 3 ✅ |
+| [Dev sample space](#sample) | Try the server pipeline locally | phase 3 ✅ |
 | [Ollama](#ollama) | Local AI (Private mode) | phase 3 (browser mode works today via Settings) |
 | [Stripe](#stripe) | Plans, checkout, billing portal | phase 11 |
 | [ClamAV](#clamav) | Virus scanning of uploads (Cloud mode) | phase 7 |
@@ -111,16 +113,55 @@ Enable **object versioning** on the bucket (version history, phase 7) and keep t
 
 ## <a id="anthropic"></a>6. Anthropic API key (FolderPilot AI)
 
+“FolderPilot AI” is the hosted default: Claude through **your server's** key. Organizations choose it in
+**Settings → AI for your organization**; signed-in people can also choose it for folders on their device
+(only ≤512px thumbnails or extracted text go through your API, never whole files).
+
 1. <https://console.anthropic.com/> → **Settings → API keys → Create key** (workspace “FolderPilot”).
-2. Set a monthly spend limit under **Limits** (FolderPilot also enforces a per-org AI budget, phase 3).
+2. Set a monthly spend limit under **Limits**. FolderPilot also enforces a per-organization **monthly AI file budget**
+   (default 1,000 files; admins change it in Settings). Identical content is described once (cached by SHA-256).
 3. `.env`:
    ```env
    ANTHROPIC_API_KEY=sk-ant-...
-   FP_AI_ANALYSIS_MODEL=claude-haiku-5-5   # fast + cheap, for file analysis
-   FP_AI_AGENT_MODEL=claude-opus-5-5       # stronger, for the agent
+   FP_AI_ANALYSIS_MODEL=claude-haiku-5-5   # small, fast model for file analysis
+   FP_AI_AGENT_MODEL=claude-opus-5-5       # stronger model for the agent (phase 5)
    ```
-Only thumbnails (≤512px) or extracted text are ever sent — never whole files. Customers can instead bring their own
-Anthropic / OpenAI-compatible / Ollama endpoint per organization or per space.
+4. Restart `pnpm dev` (the API and the worker both read it). Without the key, FolderPilot AI is simply not offered.
+
+## <a id="org-ai"></a>6b. Your organization's own AI (server spaces)
+
+Owners/admins: **Settings → AI for your organization**. Keys are stored AES-256-GCM encrypted (with `ENCRYPTION_KEY`)
+and are never shown again — the field says “saved”; type to replace, or “Remove saved key”.
+
+- **Claude API**: paste an Anthropic API key and a model (e.g. `claude-opus-5-5`).
+- **Amazon Bedrock**: AWS console → **Bedrock → Model access** → enable the Claude models; create an IAM user/role
+  with `bedrock:InvokeModel*` on them. Enter the **region** (e.g. `eu-central-1`) and either an access key pair or leave
+  the keys empty to use the server's AWS credentials (environment / instance role). The model id is prefixed with
+  `anthropic.` automatically.
+- **Google Vertex AI**: Google Cloud console → enable **Vertex AI API** → **Model Garden** → enable Claude.
+  Create a service account with **Vertex AI User**, download its JSON key and paste it (or leave it empty to use the
+  server's application-default credentials). Enter the **project ID** and **region** (`global` recommended).
+- **OpenAI-compatible** (OpenAI, Azure OpenAI, gateways, LM Studio, vLLM): base URL, key, model.
+- **Ollama on the server**: the server-side URL (e.g. `http://localhost:11434`) and models.
+
+Click **Test connection**. The usage meter shows this month's analyzed files against the budget.
+
+## <a id="sample"></a>6c. Dev sample space (try the server pipeline now)
+
+Server spaces (Cloud, Connect, self-hosted Private) arrive in phases 7–9. Until then, development builds can show a
+**read-only** folder on your machine as a server space:
+
+```bash
+pnpm sample                                  # creates ./sample-messy (650 mixed files)
+# .env:  FP_DEV_SAMPLE_DIR=/absolute/path/to/folderpilot/sample-messy
+pnpm db:seed                                 # adds "Sample files (dev)" to Demo Office
+pnpm dev                                     # API + web + worker
+```
+
+Sign in as `owner@folderpilot.local`, set an AI in **Settings → AI for your organization** (or skip it: local
+analysis still finds duplicates and bad photos), click **Sample files (dev)** in the sidebar → **Scan & analyze**.
+The worker hashes, measures and reads every file, flags duplicates/blurry/dark/tiny/screenshots, then asks the AI.
+Low-confidence results land in **Needs Review**. Moving/renaming/trashing is refused on this space until phase 9.
 
 ## <a id="ollama"></a>7. Ollama (local AI)
 

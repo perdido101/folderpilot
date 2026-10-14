@@ -7,8 +7,53 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 |---|-------|--------|
 | 1 | Monorepo + foundations (db, auth/orgs/roles, API, worker, web shell, i18n (English), dev services, CI) | ✅ done |
 | 2 | Core engine: StorageAdapter, plan engine, audit, undo, trash/restore, conflict checks; `local-browser` adapter | ✅ done |
-| 3 | Analysis + AI: analysis package (browser + worker), BullMQ jobs, four AI providers, insight pipeline, Needs Review, Duplicates & Bad Files | ⏭ next |
-| 4–14 | see `CLAUDE.md` §20 | — |
+| 3 | Analysis + AI: analysis package (browser + worker), BullMQ jobs, four AI providers, insight pipeline, Needs Review, Duplicates & Bad Files | ✅ done |
+| 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ⏭ next |
+| 5–14 | see `CLAUDE.md` §20 | — |
+
+## Phase 3 — done
+
+- **`packages/analysis` — one analyzer for browser and server.** `analyzeFile()` does SHA-256 (partial for files over
+  256 MB), dHash, contrast-normalized blur, brightness, size, EXIF (exifr) and a text excerpt (TXT/CSV/…, DOCX with
+  mammoth, PDF through an injected reader). Image decoding is injected: OffscreenCanvas in the browser worker, `sharp`
+  in the server worker (pdf.js legacy build for PDFs). The browser's analysis worker is now a thin wrapper.
+- **`packages/ai` — four providers, streaming, entities, usage.**
+  - `FileInsight` now has `entities { client, date, amount, docType }`; strict zod validation; English only.
+  - `chat()` streams (`AsyncIterable<ChatEvent>`: text deltas, then the full turn with tool calls and usage);
+    `collectChat()` keeps today's agent working until phase 5. Every call returns token usage.
+  - Providers: **FolderPilot AI** (our `ANTHROPIC_API_KEY`, `FP_AI_ANALYSIS_MODEL` for files, `FP_AI_AGENT_MODEL` for
+    the agent), **Ollama**, **OpenAI-compatible**, **your Claude** on the Claude API, **Amazon Bedrock** or **Google
+    Vertex AI** (server-only: `@folderpilot/ai/server`, official SDK clients, created lazily). Server-side refusal
+    fallbacks are used on the Claude API for models that support them.
+- **Organization AI (server).** New tables `org_settings` (provider + AES-256-GCM-encrypted secrets bound to the org,
+  thresholds, monthly AI file budget — default 1,000) and `ai_insight_cache` (same content + same provider/model =
+  no second call). Every call is recorded in `ai_usage`; at the budget, AI analysis stops with a clear message.
+  Routes: `GET/PUT /api/orgs/:id/settings/ai` (admins; keys never returned), `…/settings/ai/test`, `…/ai/status`,
+  `POST …/ai/describe` (FolderPilot AI for folders on this device: ≤512px thumbnails or text only, metered, cached)
+  and `POST …/ai/chat` (SSE streaming, ready for the phase 5 agent).
+- **Worker pipeline (BullMQ).** `index` (scan a space, upsert files, forget removed ones) → `analysis` per file →
+  `flags` per space (deduplicated) → `ai` per file (rule-set category wins → natural rules in the prompt → AI;
+  confidence < threshold → **Needs Review**). Retries with backoff, permanent failures (budget, missing space) don't
+  retry, everything idempotent. Adapter registry in the new `packages/adapters`.
+- **Dev sample space (your choice).** `LocalServerAdapter` (Node fs, path-traversal and symlink-escape safe) shipped
+  **read-only**; `FP_DEV_SAMPLE_DIR` + `pnpm db:seed` adds "Sample files (dev)" to Demo Office. Never in production.
+  It becomes the writable `local-server` adapter in phase 9.
+- **Server space routes.** Files (filters: status, flag, category, search), status/progress, duplicate groups with a
+  "keep best" pick, scan, review actions (accept / set category / keep / trash) **through the core engine with the
+  Postgres store** (audited, undoable), the space's audit log (with "undone by"), and undo.
+- **Web.**
+  - Server spaces in the sidebar are clickable; All Files, Needs Review, Duplicates & Bad Files (with review mode
+    ← trash / → keep) and Audit Log show the server space; other views say which phase brings them.
+  - Header with live progress ("537 of 537 analyzed · 0 described by AI"), **Scan & analyze**, read-only notice.
+  - **Settings → AI for your organization** (admins): provider (FolderPilot AI only when the server has a key; Claude
+    API / Bedrock / Vertex; OpenAI-compatible; Ollama), write-only keys ("saved — type to replace", "Remove saved key"),
+    budget + usage meter, Test connection. "AI for folders on this device" gains FolderPilot AI when signed in.
+  - AI status pill shows the organization's AI while a server space is open.
+  - **Accept** in Needs Review (device mode) now goes through the engine: audited and undoable.
+
+Verified on the real 546-file `pnpm sample` folder via `pnpm dev`: 537 files indexed and analyzed by the worker in
+~11 s; 70 exact-copy groups (84 copies), 6 burst near-duplicate groups (14 photos), 17 blurry, 10 dark, 15 tiny,
+81 screenshots. (No AI key here, so AI ran only against mocks.)
 
 ## Phase 2 — done
 
@@ -81,27 +126,35 @@ e2e/            Playwright smoke tests
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
-## Verified (after phase 2)
+## Verified (after phase 3)
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
-- `pnpm test` — 174 unit tests: core 81 (engine: lifecycle, permissions, human-only trash, conflicts, resume, undo, auto-run;
-  rules, permissions, file kinds), web 47 (local-browser adapter, Dexie store + engine incl. conflicts/undo/read-only, v2 → v3 upgrade,
-  `moveFile`, search, locales), analysis 21, ai 12, server 11, worker 2.
-- `pnpm test:integration` (real Postgres + Redis) — db 12 (migrations, append-only trigger, undo link + view, pgvector, `scoped()`
-  isolation; engine store: plan execution, undo events + `undone_by` view, trash history, transaction rollback, org isolation), server 9 (health, security headers, sign-up → org → owner role, invited viewer gets viewer permissions only, non-members get 404,
-  features off when unconfigured, cross-site POST rejected), worker 1 (heartbeat job). Booting with only Postgres + Redis is a unit test.
-- `pnpm test:e2e` (Playwright, Chromium) — 5 tests: sign up → org → shell → invite → dark theme → sign out; device mode opens a folder;
-  move 3 files → Undo → back on disk (audit keeps both); trash → `.folderpilot-trash` → restore; file edited while a plan waits →
-  conflict shown, nothing overwritten → "Apply to the current file".
+- `pnpm test` — 202 unit tests: core 81, web 48 (adds Accept-through-engine), ai 29 (parsing incl. entities; every
+  provider against a mock HTTP server: insights, streaming chat with tool calls, embeddings, usage, refusals, errors;
+  server factory for FolderPilot AI/Bedrock/Vertex), analysis 27 (`analyzeFile` on JPEG/TXT/DOCX/PDF hook, broken
+  files, partial hash, screenshot heuristic, dHash/duplicates), adapters 4 (read-only, path traversal, symlinks,
+  registry), server 11, worker 2.
+- `pnpm test:integration` (real Postgres + Redis) — db 16 (adds org settings: encrypted, never returned, kept when
+  sent back empty, bound to the org; metered AI: cache, usage, budget, org isolation), server 20 (adds AI settings
+  permissions, describe proxy: permissions, oversized thumbnail, budget 429, cache; SSE chat; files/status/duplicates;
+  other orgs get 404; Accept audited + undo; trash refused on read-only space; scan queued), worker 4 (adds the full
+  pipeline on a temp folder: images/text/PDF analysis, duplicate + blur flags, AI once per content, Needs Review,
+  idempotent re-scan, edited file re-analyzed).
+- `pnpm test:e2e` (Playwright, Chromium, real worker + mock AI) — 7 tests: the 5 from before, plus **seeded owner →
+  Settings → org AI → Sample files (dev) → Scan & analyze → Needs Review → Accept → Audit Log → Undo → Duplicates &
+  review mode (trash refused, read-only)**, and device-mode local analysis finding exact duplicates.
 - `pnpm services:up && pnpm db:migrate && pnpm db:seed && pnpm dev` — web :5173, API :3000 (health ok), worker heartbeat logged.
 
 ## What you need to configure
 
 1. `pnpm install && pnpm setup:env` — creates `.env` with fresh secrets (never overwrites an existing one).
 2. Docker running → `pnpm services:up` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev`.
-3. Optional now: Google / Microsoft sign-in keys → `docs/SETUP.md` §2–3. Everything else (Drive, OneDrive, Dropbox, S3, Anthropic,
+3. To try the server pipeline: `pnpm sample`, set `FP_DEV_SAMPLE_DIR=/absolute/path/to/sample-messy` in `.env`,
+   `pnpm db:migrate && pnpm db:seed`, `pnpm dev` (docs/SETUP.md §6c). For AI: `ANTHROPIC_API_KEY` (FolderPilot AI),
+   or your own Claude/Bedrock/Vertex/OpenAI-compatible/Ollama in **Settings → AI for your organization** (§6, §6b).
+4. Optional now: Google / Microsoft sign-in keys → `docs/SETUP.md` §2–3. Everything else (Drive, OneDrive, Dropbox, S3, Anthropic,
    Stripe, ClamAV) is documented there with the phase that starts using it; all of it stays hidden until configured.
-4. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
+5. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
 
 ## Known issues / notes
 
@@ -110,7 +163,11 @@ e2e/            Playwright smoke tests
 - Trash is never purged automatically yet (that would permanently remove files); auto-purge after retention comes with admin settings (phase 11).
 - The browser can't watch folders: changes made outside FolderPilot are picked up by Rescan, and show up as conflicts if a plan touches them.
 - Plans made before this update that were waiting as agent "undo" proposals were cancelled by the upgrade; ask the agent again.
-- "Accept AI suggestion" in Needs Review still sets the status directly (index-only, not a file change); it moves onto the engine in phase 3.
+- Server spaces: the agent panel, Rules, Categories, Recent, Approvals and Trash views still work on folders on this
+  device only (they say which phase brings server spaces). The dev sample space is read-only until phase 9.
+- Progress for server jobs is polled every 1.5 s while work is running (SSE comes with phase 5 streaming).
+- AI for server spaces is tested against mocks here (no Anthropic/Bedrock/Vertex credentials in this environment).
+- Embeddings (search by meaning) for server spaces arrive in phase 6; per-space AI override in phase 9.
 - `pnpm setup` is a built-in pnpm command, so the env script is `pnpm setup:env`.
 - Docker Hub may rate-limit image pulls (429); `docs/SETUP.md` → Troubleshooting has the mirror workaround.
 - English only (UI and agent), by decision.

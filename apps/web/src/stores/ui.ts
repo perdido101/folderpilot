@@ -11,6 +11,8 @@ interface UIState {
   search: string;
   semanticSearch: boolean;
   activeRootId: number | null;
+  /** A server space (Cloud/Connect/Private server) being viewed instead of a folder on this device. */
+  activeServerSpaceId: string | null;
   /** Right panel tab. */
   rightTab: "agent" | "details";
   setRightTab: (tab: "agent" | "details") => void;
@@ -24,6 +26,7 @@ interface UIState {
   setSearch: (search: string) => void;
   setSemanticSearch: (on: boolean) => void;
   setActiveRootId: (id: number | null) => void;
+  setActiveServerSpaceId: (id: string | null) => void;
 }
 
 export const useUI = create<UIState>()(
@@ -35,6 +38,7 @@ export const useUI = create<UIState>()(
       search: "",
       semanticSearch: false,
       activeRootId: null,
+      activeServerSpaceId: null,
       rightTab: "agent",
       setRightTab: (rightTab) => set({ rightTab }),
       paletteOpen: false,
@@ -54,11 +58,12 @@ export const useUI = create<UIState>()(
       setViewMode: (viewMode) => set({ viewMode }),
       setSearch: (search) => set({ search }),
       setSemanticSearch: (semanticSearch) => set({ semanticSearch }),
-      setActiveRootId: (activeRootId) => set({ activeRootId }),
+      setActiveRootId: (activeRootId) => set({ activeRootId, activeServerSpaceId: null }),
+      setActiveServerSpaceId: (activeServerSpaceId) => set({ activeServerSpaceId }),
     }),
     {
       name: "fp-ui",
-      partialize: (s) => ({ theme: s.theme, agentPanelOpen: s.agentPanelOpen, viewMode: s.viewMode, activeRootId: s.activeRootId, semanticSearch: s.semanticSearch, rightTab: s.rightTab }),
+      partialize: (s) => ({ theme: s.theme, agentPanelOpen: s.agentPanelOpen, viewMode: s.viewMode, activeRootId: s.activeRootId, activeServerSpaceId: s.activeServerSpaceId, semanticSearch: s.semanticSearch, rightTab: s.rightTab }),
     },
   ),
 );

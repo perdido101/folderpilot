@@ -1,5 +1,5 @@
 /** One-click user actions: run through the engine, then show "… · Undo". */
-import { db, type FileRecord, type StepInput } from "../db";
+import type { FileRecord, StepInput } from "../db";
 import { sanitizeSuggestedName } from "@folderpilot/ai";
 import { renderTemplate } from "@folderpilot/core";
 import i18n from "@/i18n";
@@ -164,8 +164,15 @@ export const unflag = (rootId: number, files: FileRecord[], flag: "suggested_del
       .map((f) => ({ fileId: f.id, action: "unflag", to: flag, before: i18n.t("actions:labels.suggestedForDeletion"), after: i18n.t("actions:labels.kept") })),
   );
 
-/** Accept a low-confidence AI suggestion as-is. */
+/** Accept a low-confidence AI suggestion as-is: a category step through the engine (audited, undoable). */
 export async function acceptReview(files: FileRecord[]) {
-  await db.files.bulkUpdate(files.map((f) => ({ key: f.id, changes: { status: "analyzed" as const } })));
-  toast(i18n.t("actions:toasts.accepted", { count: files.length }), "success");
+  const byRoot = new Map<number, FileRecord[]>();
+  for (const f of files.filter((x) => x.status === "needs_review")) byRoot.set(f.rootId, [...(byRoot.get(f.rootId) ?? []), f]);
+  for (const [rootId, list] of byRoot) {
+    await run(
+      rootId,
+      i18n.t("actions:toasts.accepted", { count: list.length }),
+      list.map((f) => ({ fileId: f.id, action: "category" as const, to: f.category ?? "Uncategorized", before: f.category || "—", after: f.category ?? "Uncategorized" })),
+    );
+  }
 }

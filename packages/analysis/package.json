@@ -5,11 +5,23 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": { "@folderpilot/core": "workspace:*" },
-  "devDependencies": { "typescript": "^5.9.3", "vitest": "^3.2.7" }
+  "dependencies": {
+    "@folderpilot/core": "workspace:*",
+    "exifr": "^7.1.3",
+    "mammoth": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "jpeg-js": "^0.4.4",
+    "jszip": "^3.10.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
 }

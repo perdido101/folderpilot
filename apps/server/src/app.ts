@@ -8,7 +8,9 @@ import { session } from "./middleware/auth";
 import { originGuard } from "./middleware/origin";
 import { rateLimit } from "./middleware/rate-limit";
 import { meRoutes } from "./routes/me";
+import { aiRoutes } from "./routes/ai";
 import { orgRoutes } from "./routes/orgs";
+import { spaceFileRoutes } from "./routes/space-files";
 import { systemRoutes } from "./routes/system";
 
 export function createApp(deps: Deps) {
@@ -41,6 +43,8 @@ export function createApp(deps: Deps) {
   app.route("/api", systemRoutes(deps));
   app.route("/api/me", meRoutes(deps));
   app.route("/api/orgs", orgRoutes(deps));
+  app.route("/api/orgs", aiRoutes(deps));
+  app.route("/api/orgs", spaceFileRoutes(deps));
 
   app.notFound((c) => c.json({ error: "not_found", message: "Not found." }, 404));
   app.onError((err, c) => {

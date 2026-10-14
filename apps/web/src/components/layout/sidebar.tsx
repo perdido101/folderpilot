@@ -26,7 +26,10 @@ import {
 import { roleAtLeast } from "@folderpilot/core";
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, cn } from "@folderpilot/ui";
 import { openMiniWindow } from "@/features/palette/command-palette";
+import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/db";
+import { api } from "@/lib/api";
+import { useActiveServerSpace, type SpaceStatus } from "@/features/server-space/api";
 import { useActiveRoot } from "@/hooks/use-active-root";
 import { useActiveOrg, useServerSpaces } from "@/hooks/use-me";
 import { useMode } from "@/stores/mode";
@@ -97,6 +100,14 @@ export function Sidebar() {
   const activeRoot = useActiveRoot();
   const activeRootId = activeRoot?.id ?? null;
   const setActiveRootId = useUI((s) => s.setActiveRootId);
+  const setActiveServerSpaceId = useUI((s) => s.setActiveServerSpaceId);
+  const serverSpace = useActiveServerSpace();
+  const activeServerSpaceId = serverSpace?.id ?? null;
+  const serverStatus = useQuery({
+    queryKey: ["space", activeServerSpaceId, "status"],
+    enabled: Boolean(serverSpace),
+    queryFn: () => api<SpaceStatus>(`/api/orgs/${serverSpace!.orgId}/spaces/${serverSpace!.id}/status`),
+  }).data;
   const [connectOpen, setConnectOpen] = useState(false);
   const roots = useLiveQuery(() => db.roots.orderBy("addedAt").toArray(), [], []);
   const needsReview = useLiveQuery(
@@ -113,7 +124,7 @@ export function Sidebar() {
   );
   const pending = useLiveQuery(() => (activeRootId === null ? 0 : db.plans.where("rootId").equals(activeRootId).filter((p) => p.status === "pending").count()), [activeRootId], 0);
   const nav = useVisibleNav();
-  const badges: Partial<Record<NavKey, number>> = { review: needsReview, approvals: pending };
+  const badges: Partial<Record<NavKey, number>> = serverSpace ? { review: serverStatus?.needsReview ?? 0 } : { review: needsReview, approvals: pending };
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-surface">
@@ -140,7 +151,7 @@ export function Sidebar() {
             <button
               key={`local-${root.id}`}
               onClick={() => setActiveRootId(root.id)}
-              className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-surface-2", root.id === activeRootId && "bg-surface-2 font-medium")}
+              className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-surface-2", !serverSpace && root.id === activeRootId && "bg-surface-2 font-medium")}
               title={t("spaces.deviceHint")}
             >
               <Laptop className="size-4 shrink-0 text-muted" />
@@ -149,11 +160,16 @@ export function Sidebar() {
             </button>
           ))}
           {serverSpaces.map((s) => (
-            <div key={s.id} className="flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm text-muted" title={t("spaces.serverHint")}>
-              <HardDrive className="size-4 shrink-0" />
+            <button
+              key={s.id}
+              onClick={() => setActiveServerSpaceId(s.id)}
+              className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-surface-2", s.id === activeServerSpaceId && "bg-surface-2 font-medium")}
+              title={t("spaces.serverHint")}
+            >
+              <HardDrive className="size-4 shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{s.name}</span>
-              <span className="rounded-full border px-1.5 text-[10px]">{t(`modes.${s.mode}`)}</span>
-            </div>
+              <span className="rounded-full border px-1.5 text-[10px] text-muted">{t(`modes.${s.mode}`)}</span>
+            </button>
           ))}
         </section>
 

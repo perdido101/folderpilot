@@ -9,3 +9,4 @@ sample-messy/
 .turbo
 test-results/
 playwright-report/
+.tmp/

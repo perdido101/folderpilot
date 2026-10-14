@@ -18,17 +18,16 @@ export function extractJson(text: string): unknown {
   }
 }
 
+const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
 /** Normalize the loose shapes small local models produce, then validate strictly. */
 export function parseInsight(raw: unknown): FileInsight {
   const obj = (typeof raw === "string" ? extractJson(raw) : raw) as Record<string, unknown> | null;
   if (!obj || typeof obj !== "object") throw new Error("AI reply is not an object");
-  const tags = Array.isArray(obj.tags)
-    ? obj.tags
-    : typeof obj.tags === "string"
-      ? obj.tags.split(",")
-      : [];
+  const tags = Array.isArray(obj.tags) ? obj.tags : typeof obj.tags === "string" ? obj.tags.split(",") : [];
   let confidence = typeof obj.confidence === "string" ? Number.parseFloat(obj.confidence) : obj.confidence;
   if (typeof confidence === "number" && confidence >= 10 && confidence <= 100) confidence /= 100; // "85" → 0.85; "7" stays invalid
+  const ent = (obj.entities && typeof obj.entities === "object" ? obj.entities : {}) as Record<string, unknown>;
   const normalized = {
     category: typeof obj.category === "string" ? obj.category.trim() : obj.category,
     tags: tags
@@ -38,7 +37,13 @@ export function parseInsight(raw: unknown): FileInsight {
       .slice(0, 8),
     caption: typeof obj.caption === "string" ? obj.caption.trim() : "",
     suggestedName: typeof obj.suggestedName === "string" ? obj.suggestedName.trim() : typeof obj.suggested_name === "string" ? obj.suggested_name.trim() : "",
-    client: typeof obj.client === "string" && obj.client.trim() ? obj.client.trim() : null,
+    // Older/looser replies put the client at the top level.
+    entities: {
+      client: text(ent.client) ?? text(obj.client),
+      date: text(ent.date),
+      amount: text(ent.amount),
+      docType: text(ent.docType) ?? text(ent.doc_type),
+    },
     confidence,
     reason: typeof obj.reason === "string" ? obj.reason.trim() : "",
   };

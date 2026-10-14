@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { CheckCircle2, CircleAlert, Cloud, Cpu, Loader2, Lock, PowerOff } from "lucide-react";
+import { CheckCircle2, CircleAlert, Cloud, Cpu, Loader2, Lock, PowerOff, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@folderpilot/ui";
 import { Input } from "@folderpilot/ui";
 import { db } from "@/lib/db";
-import { createProvider } from "@folderpilot/ai";
+import { useBrowserProvider } from "@/lib/ai/provider";
 import { recomputeFlags } from "@/lib/analysis/runner";
 import { buildEmbeddings } from "@/lib/search";
 import { saveSettings, useSettings, type AISettings, type ProviderKind, type Thresholds } from "@/lib/settings";
@@ -12,6 +12,9 @@ import { cn } from "@folderpilot/ui";
 import { useActiveRoot } from "@/hooks/use-active-root";
 import { toast } from "@/stores/toasts";
 import { useUI } from "@/stores/ui";
+import { useMode } from "@/stores/mode";
+import { useActiveOrg, useFeatures } from "@/hooks/use-me";
+import { OrgAISettings } from "./org-ai-settings";
 
 function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -37,6 +40,7 @@ function Section({ title, description, children }: { title: string; description?
 
 const PROVIDERS: { kind: ProviderKind; icon: typeof Cpu }[] = [
   { kind: "none", icon: PowerOff },
+  { kind: "folderpilot", icon: Sparkles },
   { kind: "ollama", icon: Cpu },
   { kind: "openai", icon: Cloud },
   { kind: "anthropic", icon: Cloud },
@@ -46,7 +50,7 @@ export function TestConnection() {
   const settings = useSettings();
   const { t } = useTranslation("settings");
   const [state, setState] = useState<{ status: "idle" | "testing" | "ok" | "error"; message?: string }>({ status: "idle" });
-  const provider = createProvider(settings.ai);
+  const provider = useBrowserProvider(settings.ai);
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Button
@@ -91,15 +95,21 @@ export function SettingsPage() {
   const ai = settings.ai;
   const setAI = <K extends keyof AISettings>(key: K, value: AISettings[K]) => void saveSettings((s) => ({ ...s, ai: { ...s.ai, [key]: value } }));
   const setThreshold = (key: keyof Thresholds, value: number) => void saveSettings((s) => ({ ...s, thresholds: { ...s.thresholds, [key]: value } }));
-  const provider = createProvider(ai);
+  const provider = useBrowserProvider(ai);
+  const mode = useMode((s) => s.mode);
+  const org = useActiveOrg();
+  const features = useFeatures().data;
+  // FolderPilot AI runs through our API, so it needs a signed-in organization and the server's key.
+  const providers = PROVIDERS.filter((p) => p.kind !== "folderpilot" || (mode === "account" && org && features?.folderpilotAI) || ai.provider === "folderpilot");
 
   return (
     <div className="h-full overflow-y-auto p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <h1 className="font-semibold">{t("title")}</h1>
+        {mode === "account" && <OrgAISettings />}
 
         <Section
-          title={t("provider.title")}
+          title={mode === "account" ? t("org.deviceTitle") : t("provider.title")}
           description={
             <span className="flex items-center gap-1.5">
               <Lock className="size-3.5" /> {t("provider.privacy")}
@@ -107,7 +117,7 @@ export function SettingsPage() {
           }
         >
           <div className="grid gap-2 sm:grid-cols-2">
-            {PROVIDERS.map(({ kind, icon: Icon }) => (
+            {providers.map(({ kind, icon: Icon }) => (
               <button
                 key={kind}
                 onClick={() => setAI("provider", kind)}

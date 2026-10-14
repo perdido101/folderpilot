@@ -25,6 +25,8 @@ import { RulesPage } from "@/features/rules/rules-page";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { TrashPage } from "@/features/trash/trash-page";
 import { PlaceholderPage } from "@/pages/placeholder-page";
+import { ServerAudit, ServerDuplicates, ServerFilesView, ServerNeedsReview } from "@/features/server-space/server-views";
+import { SpaceRoute } from "@/features/server-space/space-route";
 
 function NotFound() {
   const { t } = useTranslation("pages");
@@ -47,16 +49,16 @@ const router = createBrowserRouter(
         </Gate>
       ),
       children: [
-        { index: true, element: <FilesPage /> },
-        { path: "review", element: <NeedsReviewPage /> },
-        { path: "recent", element: <RecentPage /> },
-        { path: "categories", element: <CategoriesPage /> },
-        { path: "duplicates", element: <DuplicatesPage /> },
-        { path: "rules", element: <RulesPage /> },
-        { path: "approvals", element: <ApprovalsPage /> },
-        { path: "audit", element: <AuditPage /> },
+        { index: true, element: <SpaceRoute device={<FilesPage />} server={(s) => <ServerFilesView space={s} />} /> },
+        { path: "review", element: <SpaceRoute device={<NeedsReviewPage />} server={(s) => <ServerNeedsReview space={s} />} /> },
+        { path: "recent", element: <SpaceRoute device={<RecentPage />} phase={6} /> },
+        { path: "categories", element: <SpaceRoute device={<CategoriesPage />} phase={6} /> },
+        { path: "duplicates", element: <SpaceRoute device={<DuplicatesPage />} server={(s) => <ServerDuplicates space={s} />} /> },
+        { path: "rules", element: <SpaceRoute device={<RulesPage />} phase={4} /> },
+        { path: "approvals", element: <SpaceRoute device={<ApprovalsPage />} phase={5} /> },
+        { path: "audit", element: <SpaceRoute device={<AuditPage />} server={(s) => <ServerAudit space={s} />} /> },
         { path: "shared", element: <SharedPage /> },
-        { path: "trash", element: <TrashPage /> },
+        { path: "trash", element: <SpaceRoute device={<TrashPage />} phase={7} /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "admin", element: <MembersPage /> },
         { path: "*", element: <NotFound /> },

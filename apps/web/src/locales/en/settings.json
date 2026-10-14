@@ -22,7 +22,11 @@
       },
       "anthropic": {
         "title": "Your cloud — Anthropic",
-        "text": "Claude API, or your Bedrock/Vertex proxy."
+        "text": "Your Claude API key. Bedrock and Vertex can be set up for your organization in account mode."
+      },
+      "folderpilot": {
+        "title": "FolderPilot AI",
+        "text": "Our hosted Claude. Only small thumbnails or extracted text are sent, counted against your organization's monthly AI budget."
       }
     },
     "autoAnalyze": "Analyze new files with AI automatically after indexing"
@@ -78,5 +82,49 @@
     "forget": "Forget this folder",
     "forgetConfirm": "Forget “{{name}}”? Its index and pending plans are removed from FolderPilot (the audit log is kept). Your files stay exactly where they are.",
     "forgotten": "Forgot “{{name}}”"
+  },
+  "org": {
+    "title": "AI for your organization",
+    "description": "Used for server spaces (Cloud, Connect and self-hosted Private mode). Keys are stored encrypted on the server and never shown again.",
+    "providers": {
+      "none": "Off",
+      "folderpilot": "FolderPilot AI",
+      "ollama": "Local — Ollama (on the server)",
+      "openai": "Your cloud — OpenAI-compatible",
+      "anthropic": "Your cloud — Claude"
+    },
+    "folderpilotUnavailable": "FolderPilot AI isn't configured on this server (ANTHROPIC_API_KEY, see docs/SETUP.md).",
+    "platform": "Where your Claude runs",
+    "platforms": {
+      "anthropic": "Claude API",
+      "bedrock": "Amazon Bedrock",
+      "vertex": "Google Vertex AI"
+    },
+    "fields": {
+      "name": "Display name",
+      "baseUrl": "Base URL",
+      "apiKey": "API key",
+      "model": "Model",
+      "embedModel": "Embedding model",
+      "visionModel": "Vision model",
+      "textModel": "Text model",
+      "region": "Region",
+      "accessKeyId": "Access key ID",
+      "secretAccessKey": "Secret access key",
+      "projectId": "Project ID",
+      "serviceAccountJson": "Service account JSON",
+      "budget": "Monthly AI budget (files)",
+      "budgetHint": "AI analysis stops for the month when this many files have been described. Cached results don't count."
+    },
+    "bedrockHint": "Leave the keys empty to use the server's AWS credentials (environment or instance role).",
+    "vertexHint": "Leave the JSON empty to use the server's Google credentials (application default).",
+    "secretSaved": "•••••••• saved — type to replace",
+    "clear": "Remove saved key",
+    "usage": "This month: {{files}} of {{budget}} files · {{tokens}} tokens",
+    "save": "Save",
+    "saved": "AI settings saved.",
+    "test": "Test connection",
+    "adminOnly": "Only owners and admins can change these settings.",
+    "deviceTitle": "AI for folders on this device"
   }
 }

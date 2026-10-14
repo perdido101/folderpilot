@@ -122,7 +122,8 @@
     "localHint": "Runs on this computer — nothing leaves your machine.",
     "offHint": "Local analysis (duplicates, bad photos, keyword search) works without AI.",
     "cloudHint": "Only thumbnails (≤512px) and extracted text are sent to your endpoint. Never whole files.",
-    "openSettings": "Open AI settings →"
+    "openSettings": "Open AI settings →",
+    "folderpilot": "FolderPilot AI"
   },
   "browserNotice": {
     "title": "Read-only mode.",

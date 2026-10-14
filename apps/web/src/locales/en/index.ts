@@ -17,8 +17,9 @@ import palette from "./palette.json";
 import mini from "./mini.json";
 import actions from "./actions.json";
 import pages from "./pages.json";
+import spaces from "./spaces.json";
 
 /** English is the source of truth: every key must exist here first. */
-export const en = { common, shell, auth, admin, files, intake, cleanup, review, categories, rules, plans, audit, trash, settings, agent, palette, mini, actions, pages };
+export const en = { common, shell, auth, admin, files, intake, cleanup, review, categories, rules, plans, audit, trash, settings, agent, palette, mini, actions, pages, spaces };
 
 export type Namespace = keyof typeof en;

@@ -1,12 +1,41 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["NODE_ENV"],
-  "globalPassThroughEnv": ["DATABASE_URL", "REDIS_URL", "BASE_PATH", "VITE_*"],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
+  "globalPassThroughEnv": [
+    "ANTHROPIC_API_KEY",
+    "BASE_PATH",
+    "DATABASE_URL",
+    "ENCRYPTION_KEY",
+    "FP_*",
+    "REDIS_URL",
+    "TEST_DATABASE_URL",
+    "VITE_*"
+  ],
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
-    "dev": { "cache": false, "persistent": true },
-    "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": [] },
-    "test:integration": { "cache": false }
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^typecheck"
+      ]
+    },
+    "test": {
+      "dependsOn": []
+    },
+    "test:integration": {
+      "cache": false
+    }
   }
 }

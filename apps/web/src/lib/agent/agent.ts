@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { createProvider } from "@folderpilot/ai";
-import type { ChatMessage } from "@folderpilot/ai";
+import { collectChat, type ChatMessage } from "@folderpilot/ai";
+import { browserProvider } from "../ai/provider";
 import { keywordSearch } from "../search";
 import i18n from "@/i18n";
 import { getSettings } from "../settings";
@@ -32,7 +32,7 @@ export interface AgentTurn {
 /** One user turn: loop model → tools → model until it answers (max 8 tool rounds). */
 export async function runAgentTurn(rootId: number, history: ChatMessage[], userText: string): Promise<AgentTurn> {
   const settings = await getSettings();
-  const provider = createProvider(settings.ai);
+  const provider = browserProvider(settings.ai);
   const root = await db.roots.get(rootId);
   const ctx: ToolContext = { rootId, planIds: [], fileIds: [] };
   const messages: ChatMessage[] = [...history, { role: "user", content: userText }];
@@ -52,7 +52,7 @@ export async function runAgentTurn(rootId: number, history: ChatMessage[], userT
 
   const system = systemPrompt(root?.name ?? "this folder", new Date().toISOString().slice(0, 10));
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await provider.chat(system, messages, TOOL_DEFS);
+    const res = await collectChat(provider.chat(system, messages, TOOL_DEFS));
     messages.push({ role: "assistant", content: res.content, toolCalls: res.toolCalls, raw: res.raw });
     if (res.toolCalls.length === 0) {
       return { messages, reply: res.content, planIds: ctx.planIds, fileIds: [...new Set(ctx.fileIds)] };

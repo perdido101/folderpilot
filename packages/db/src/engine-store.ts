@@ -46,7 +46,8 @@ type StepRow = typeof planSteps.$inferSelect;
 type AuditRow = typeof auditEvents.$inferSelect;
 type RuleRow = typeof rules.$inferSelect;
 
-function toEngineFile(f: FileRow): EngineFile {
+/** A `files` row as the engine, rules and analysis see it. */
+export function toEngineFile(f: FileRow): EngineFile {
   return defined({
     id: f.id,
     spaceId: f.spaceId,
@@ -61,6 +62,7 @@ function toEngineFile(f: FileRow): EngineFile {
     status: f.status,
     flags: f.flags as FileFlag[],
     tags: f.tags,
+    analyzedLocally: f.analyzedAt !== null,
     sha256: f.sha256 ?? undefined,
     dhash: f.dhash ?? undefined,
     blurScore: f.blurScore ?? undefined,
@@ -136,7 +138,8 @@ function toAuditEvent(r: AuditRow): AuditEvent {
   });
 }
 
-function toRule(r: RuleRow): Rule {
+/** A `rules` row as the rules engine sees it. */
+export function toRule(r: RuleRow): Rule {
   return defined({
     id: r.id,
     type: r.type,

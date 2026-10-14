@@ -1,7 +1,7 @@
 import { describeMeta, insightSystemPrompt } from "./prompts";
 import { parseInsight } from "./parse";
-import type { AIProvider, AnalyzeContext, ChatMessage, ChatResult, FileMeta, ToolDef } from "./types";
-import { blobToBase64, newCallId, postJson, trimSlash } from "./util";
+import type { AIProvider, AnalyzeContext, ChatEvent, ChatMessage, ChatOpts, FileMeta, InsightResult, ToolCall, ToolDef, Usage } from "./types";
+import { blobToBase64, newCallId, postJson, postLines, trimSlash } from "./util";
 import type { AISettings } from "./config";
 
 interface OllamaMessage {
@@ -13,60 +13,71 @@ interface OllamaMessage {
 }
 
 interface OllamaChatResponse {
+  model?: string;
   message: OllamaMessage;
+  done?: boolean;
+  prompt_eval_count?: number;
+  eval_count?: number;
 }
+
+const usageOf = (r: OllamaChatResponse): Usage => ({ inputTokens: r.prompt_eval_count ?? 0, outputTokens: r.eval_count ?? 0 });
 
 export class OllamaProvider implements AIProvider {
   readonly label = "Local AI";
+  readonly cacheKey: string;
   private readonly base: string;
 
   constructor(private readonly cfg: AISettings["ollama"]) {
     this.base = trimSlash(cfg.baseUrl);
+    this.cacheKey = `ollama:${cfg.visionModel}+${cfg.textModel}`;
   }
 
-  private async complete(model: string, messages: OllamaMessage[], extra: Record<string, unknown> = {}) {
-    return postJson<OllamaChatResponse>(`${this.base}/api/chat`, { model, messages, stream: false, ...extra });
+  private async insight(model: string, user: OllamaMessage, ctx: AnalyzeContext): Promise<InsightResult> {
+    const res = await postJson<OllamaChatResponse>(`${this.base}/api/chat`, {
+      model,
+      messages: [{ role: "system", content: insightSystemPrompt(ctx) }, user],
+      stream: false,
+      format: "json",
+      options: { temperature: 0.2 },
+    });
+    return { insight: parseInsight(res.message.content), usage: usageOf(res), model };
   }
 
   async describeImage(thumb: Blob, meta: FileMeta, ctx: AnalyzeContext) {
-    const res = await this.complete(
-      this.cfg.visionModel,
-      [
-        { role: "system", content: insightSystemPrompt(ctx) },
-        { role: "user", content: describeMeta(meta), images: [await blobToBase64(thumb)] },
-      ],
-      { format: "json", options: { temperature: 0.2 } },
-    );
-    return parseInsight(res.message.content);
+    return this.insight(this.cfg.visionModel, { role: "user", content: describeMeta(meta), images: [await blobToBase64(thumb)] }, ctx);
   }
 
   async describeText(text: string, meta: FileMeta, ctx: AnalyzeContext) {
-    const res = await this.complete(
-      this.cfg.textModel,
-      [
-        { role: "system", content: insightSystemPrompt(ctx) },
-        { role: "user", content: `${describeMeta(meta)}\n\nExtracted text:\n${text || "(none)"}` },
-      ],
-      { format: "json", options: { temperature: 0.2 } },
-    );
-    return parseInsight(res.message.content);
+    return this.insight(this.cfg.textModel, { role: "user", content: `${describeMeta(meta)}\n\nExtracted text:\n${text || "(none)"}` }, ctx);
   }
 
-  async chat(system: string, messages: ChatMessage[], tools: ToolDef[]): Promise<ChatResult> {
+  async *chat(system: string, messages: ChatMessage[], tools: ToolDef[], opts: ChatOpts = {}): AsyncGenerator<ChatEvent> {
     const wire: OllamaMessage[] = [{ role: "system", content: system }];
     for (const m of messages) {
       if (m.role === "user") wire.push({ role: "user", content: m.content });
       else if (m.role === "assistant")
-        wire.push({ role: "assistant", content: m.content, tool_calls: m.toolCalls?.map((c) => ({ function: { name: c.name, arguments: c.input } })) });
+        wire.push({ role: "assistant", content: m.content, ...(m.toolCalls?.length ? { tool_calls: m.toolCalls.map((c) => ({ function: { name: c.name, arguments: c.input } })) } : {}) });
       else wire.push({ role: "tool", content: m.content, tool_name: m.name });
     }
-    const res = await this.complete(this.cfg.textModel, wire, {
-      tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })),
-    });
-    return {
-      content: res.message.content ?? "",
-      toolCalls: (res.message.tool_calls ?? []).map((c) => ({ id: newCallId(), name: c.function.name, input: c.function.arguments ?? {} })),
+    const body = {
+      model: this.cfg.textModel,
+      messages: wire,
+      stream: true,
+      ...(tools.length ? { tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) } : {}),
     };
+    let content = "";
+    let usage: Usage = { inputTokens: 0, outputTokens: 0 };
+    const toolCalls: ToolCall[] = [];
+    for await (const line of postLines(`${this.base}/api/chat`, body, {}, opts.signal)) {
+      const chunk = JSON.parse(line) as OllamaChatResponse;
+      if (chunk.message?.content) {
+        content += chunk.message.content;
+        yield { type: "text", text: chunk.message.content };
+      }
+      for (const c of chunk.message?.tool_calls ?? []) toolCalls.push({ id: newCallId(), name: c.function.name, input: c.function.arguments ?? {} });
+      if (chunk.done) usage = usageOf(chunk);
+    }
+    yield { type: "done", content, toolCalls, usage, model: this.cfg.textModel };
   }
 
   async embed(texts: string[]) {
@@ -79,7 +90,9 @@ export class OllamaProvider implements AIProvider {
     try {
       res = await fetch(`${this.base}/api/tags`);
     } catch {
-      throw new Error(`Can't reach Ollama at ${this.base}. Start Ollama and set OLLAMA_ORIGINS to allow ${location.origin}.`);
+      const loc = (globalThis as { location?: { origin: string } }).location;
+      const origin = loc ? loc.origin : "this server";
+      throw new Error(`Can't reach Ollama at ${this.base}. Start Ollama and set OLLAMA_ORIGINS to allow ${origin}.`);
     }
     if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
     const { models } = (await res.json()) as { models: { name: string }[] };

@@ -1,8 +1,12 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db, type NewFileRecord } from "../db";
 import { registerMemoryFiles, registerRootHandle } from "../file-access-cache";
 import { asDir, FakeDirHandle } from "@/test/fake-fs";
+import { acceptReview } from "./user-actions";
+
+// Toasts need a browser window; the engine result is what we test here.
+vi.mock("@/stores/toasts", () => ({ toast: () => 0 }));
 import { createPlan, executePlan, resolveConflict, runUserAction, undoAgentSince, undoBatch, undoEntry } from "./engine";
 
 let root: FakeDirHandle;
@@ -189,5 +193,15 @@ describe("action engine", () => {
     expect(res).toMatchObject({ done: 1, failed: 1 });
     expect(res.errors[0]).toMatch(/read-only/);
     expect((await db.files.get(id))!.caption).toBe("still works");
+  });
+
+  it("accepting an AI suggestion goes through the engine: status changes, it's audited, and undo puts it back", async () => {
+    const a = await addFile("scan.pdf", { status: "needs_review", category: "Scans", confidence: 0.4 });
+    await acceptReview([(await db.files.get(a))!]);
+    expect((await db.files.get(a))!).toMatchObject({ status: "analyzed", category: "Scans" });
+    const [event] = (await db.audit.toArray()).filter((e) => e.action === "category");
+    expect(event).toMatchObject({ actor: "user:local", fileIds: [a] });
+    await undoBatch(event!.batchId);
+    expect((await db.files.get(a))!.status).toBe("needs_review");
   });
 });

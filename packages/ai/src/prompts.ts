@@ -1,16 +1,16 @@
 import type { AnalyzeContext, FileMeta } from "./types";
 
-export const INSIGHT_JSON_SHAPE = `{"category": string, "tags": string[], "caption": string, "suggestedName": string, "client": string | null, "confidence": number, "reason": string}`;
+export const INSIGHT_JSON_SHAPE = `{"category": string, "tags": string[], "caption": string, "suggestedName": string, "entities": {"client": string | null, "date": string | null, "amount": string | null, "docType": string | null}, "confidence": number, "reason": string}`;
 
 export function insightSystemPrompt(ctx: AnalyzeContext): string {
   const parts = [
-    "You help a small office (accountants, law firms, agencies) organize files on their computer.",
+    "You help a small office (accountants, law firms, agencies) organize files on their computer. Always write in English.",
     "For the file described, return ONLY a JSON object with exactly these keys: " + INSIGHT_JSON_SHAPE + ".",
     "- category: a short plural noun phrase in English, e.g. Invoices, Contracts, NDAs, Receipts, Bank statements, Photos, Screenshots, Scans, Notes, Spreadsheets, Archives, Manuals.",
     "- tags: up to 6 lowercase keywords.",
     "- caption: one plain sentence describing the content.",
     "- suggestedName: a clear file name WITHOUT extension, like \"2024-03 Invoice 1001 - Alpha Ltd\". Use dates (YYYY-MM) and names only if visible in the content.",
-    "- client: the client/company the file belongs to, or null.",
+    "- entities: facts visible in the content, each null when unknown — client (the client/company the file belongs to), date (YYYY-MM-DD or YYYY-MM), amount (with currency, e.g. \"EUR 1,250.00\"), docType (e.g. invoice, contract, NDA, receipt, bank statement, photo).",
     "- confidence: 0 to 1. Use below 0.6 when you are guessing.",
     "- reason: one short sentence explaining the category.",
   ];

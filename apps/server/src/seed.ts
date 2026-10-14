@@ -3,9 +3,12 @@
  *   owner@folderpilot.local  / folderpilot-demo   (owner of "Demo Office")
  *   editor@folderpilot.local / folderpilot-demo   (editor)
  *   viewer@folderpilot.local / folderpilot-demo   (viewer)
+ * With FP_DEV_SAMPLE_DIR set (development only), the org also gets a read-only "Sample files (dev)" space on that folder.
  */
-import { eq } from "drizzle-orm";
-import { organizations, users } from "@folderpilot/db";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { and, eq } from "drizzle-orm";
+import { organizations, spaces, users } from "@folderpilot/db";
 import { createDeps } from "./deps";
 
 const PASSWORD = "folderpilot-demo";
@@ -35,6 +38,18 @@ try {
   }
   for (const p of people.filter((x) => x.role !== "owner")) {
     await auth.api.addMember({ body: { userId: ids[p.role]!, role: p.role, organizationId: org!.id } }).catch(() => undefined); // already a member
+  }
+  const sampleDir = runtime.deps.env.FP_DEV_SAMPLE_DIR;
+  if (sampleDir && runtime.deps.env.NODE_ENV !== "production") {
+    const root = path.resolve(sampleDir);
+    if (!existsSync(root)) {
+      console.warn(`FP_DEV_SAMPLE_DIR=${sampleDir} doesn't exist — run \`pnpm sample\` first. Skipping the sample space.`);
+    } else {
+      const [space] = await db.select().from(spaces).where(and(eq(spaces.organizationId, org!.id), eq(spaces.adapterId, "local-server")));
+      if (space) await db.update(spaces).set({ rootRef: root }).where(eq(spaces.id, space.id));
+      else await db.insert(spaces).values({ organizationId: org!.id, name: "Sample files (dev)", mode: "private", adapterId: "local-server", rootRef: root, createdBy: ids.owner });
+      console.log(`Sample space "Sample files (dev)" → ${root} (read-only). Open it and click Scan.`);
+    }
   }
   console.log(`Seeded "Demo Office". Sign in with ${people.map((p) => p.email).join(", ")} — password: ${PASSWORD}`);
 } finally {

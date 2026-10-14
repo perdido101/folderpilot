@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { extractJson, parseInsight, sanitizeSuggestedName } from "./parse";
 
-const valid = { category: "Invoices", tags: ["invoice", "alpha"], caption: "Invoice 1001 for Alpha Ltd.", suggestedName: "2024-03 Invoice 1001 - Alpha Ltd", client: "Alpha Ltd", confidence: 0.92, reason: "Header says INVOICE" };
+const valid = {
+  category: "Invoices",
+  tags: ["invoice", "alpha"],
+  caption: "Invoice 1001 for Alpha Ltd.",
+  suggestedName: "2024-03 Invoice 1001 - Alpha Ltd",
+  entities: { client: "Alpha Ltd", date: "2024-03-14", amount: "EUR 1,250.00", docType: "invoice" },
+  confidence: 0.92,
+  reason: "Header says INVOICE",
+};
 
 describe("extractJson", () => {
   it("parses plain JSON", () => expect(extractJson(JSON.stringify(valid))).toEqual(valid));
@@ -15,7 +23,24 @@ describe("parseInsight", () => {
 
   it("normalizes loose model output", () => {
     const loose = { category: " Receipts ", tags: "Fuel, Car ,", caption: "Fuel receipt", suggested_name: "Fuel receipt 2024-05", confidence: "85", reason: 3 };
-    expect(parseInsight(loose)).toEqual({ category: "Receipts", tags: ["fuel", "car"], caption: "Fuel receipt", suggestedName: "Fuel receipt 2024-05", client: null, confidence: 0.85, reason: "" });
+    expect(parseInsight(loose)).toEqual({
+      category: "Receipts",
+      tags: ["fuel", "car"],
+      caption: "Fuel receipt",
+      suggestedName: "Fuel receipt 2024-05",
+      entities: { client: null, date: null, amount: null, docType: null },
+      confidence: 0.85,
+      reason: "",
+    });
+  });
+
+  it("accepts a top-level client and snake_case doc_type from looser models", () => {
+    const { entities: _e, ...rest } = valid;
+    expect(parseInsight({ ...rest, client: " Beta SA ", entities: { doc_type: "contract", amount: "" } }).entities).toEqual({ client: "Beta SA", date: null, amount: null, docType: "contract" });
+  });
+
+  it("rejects over-long entity values", () => {
+    expect(() => parseInsight({ ...valid, entities: { ...valid.entities, client: "x".repeat(200) } })).toThrow();
   });
 
   it("rejects missing category and out-of-range confidence", () => {

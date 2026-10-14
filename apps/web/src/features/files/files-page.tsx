@@ -10,7 +10,7 @@ import { hasMemoryFiles } from "@/lib/file-access-cache";
 import { chooseFolder } from "@/lib/folder-source";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@folderpilot/ui";
-import { createProvider } from "@folderpilot/ai";
+import { browserProvider } from "@/lib/ai/provider";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
 import { runLocalAnalysis } from "@/lib/analysis/runner";
 import { proposeFolders, proposeRules, proposeSuggestedNames } from "@/lib/actions/organize";
@@ -72,7 +72,7 @@ export function FilesPage() {
   const liveFiles = useMemo(() => (files ?? []).filter((f) => f.status !== "trashed"), [files]);
   useEffect(() => {
     setSemanticHits(null);
-    const provider = createProvider(settings.ai);
+    const provider = browserProvider(settings.ai);
     if (!semantic || !search.trim() || !root || !provider?.embed) return;
     let cancelled = false;
     const timer = setTimeout(() => {
