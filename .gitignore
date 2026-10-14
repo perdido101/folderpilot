@@ -7,3 +7,5 @@ sample-messy/
 .env
 .env.local
 .turbo
+test-results/
+playwright-report/
