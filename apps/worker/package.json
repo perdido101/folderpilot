@@ -1,0 +1,28 @@
+{
+  "name": "@folderpilot/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run --passWithNoTests .unit.test.ts",
+    "test:integration": "vitest run .int.test.ts"
+  },
+  "dependencies": {
+    "@folderpilot/core": "workspace:*",
+    "bullmq": "^5.61.0",
+    "ioredis": "^5.8.2",
+    "pino": "^10.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "@types/node": "^22.20.5"
+  }
+}

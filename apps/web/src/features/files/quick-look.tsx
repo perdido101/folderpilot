@@ -1,0 +1,178 @@
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@folderpilot/ui";
+import type { FileRecord } from "@/lib/db";
+import { getFile } from "@/lib/file-access-cache";
+import { isTextPreviewable } from "@folderpilot/core";
+import { formatBytes, formatDate } from "@/lib/format";
+import { FileIcon } from "./file-icon";
+import { FileDetails } from "./file-details";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { useSelection } from "@/stores/selection";
+
+const TEXT_LIMIT = 200_000;
+
+type Preview =
+  | { type: "loading" }
+  | { type: "unavailable" }
+  | { type: "image" | "pdf" | "video" | "audio"; url: string }
+  | { type: "text"; text: string; truncated: boolean }
+  | { type: "none" };
+
+function usePreview(file: FileRecord | undefined): Preview {
+  const [preview, setPreview] = useState<Preview>({ type: "loading" });
+
+  useEffect(() => {
+    if (!file) return;
+    let cancelled = false;
+    let url: string | null = null;
+    setPreview({ type: "loading" });
+
+    void (async () => {
+      const blob = await getFile(file);
+      if (cancelled) return;
+      if (!blob) return setPreview({ type: "unavailable" });
+      const media = file.kind === "image" ? "image" : file.ext === "pdf" ? "pdf" : file.kind === "video" ? "video" : file.kind === "audio" ? "audio" : null;
+      if (media) {
+        url = URL.createObjectURL(file.ext === "pdf" ? new Blob([blob], { type: "application/pdf" }) : blob);
+        setPreview({ type: media, url });
+      } else if (isTextPreviewable(file.ext)) {
+        const text = await blob.slice(0, TEXT_LIMIT).text();
+        if (!cancelled) setPreview({ type: "text", text, truncated: blob.size > TEXT_LIMIT });
+      } else {
+        setPreview({ type: "none" });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      // The closing dialog (and Chrome's PDF viewer) may still read the URL for a moment.
+      if (url) setTimeout(URL.revokeObjectURL, 2000, url);
+    };
+  }, [file]);
+
+  return preview;
+}
+
+function PreviewBody({ file, preview }: { file: FileRecord; preview: Preview }) {
+  const { t } = useTranslation(["files", "common"]);
+  switch (preview.type) {
+    case "loading":
+      return <p className="text-muted">{t("common:status.loading")}</p>;
+    case "unavailable":
+      return <p className="text-muted">{t("quickLook.unavailable")}</p>;
+    case "image":
+      return <img src={preview.url} alt={file.name} className="max-h-full max-w-full object-contain" />;
+    case "pdf":
+      return <iframe src={preview.url} title={file.name} className="size-full rounded-md bg-white" />;
+    case "video":
+      return <video src={preview.url} controls className="max-h-full max-w-full" />;
+    case "audio":
+      return <audio src={preview.url} controls />;
+    case "text":
+      return (
+        <pre className="size-full overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-4 font-mono text-xs">
+          {preview.text}
+          {preview.truncated && `\n\n${t("quickLook.truncated")}`}
+        </pre>
+      );
+    case "none":
+      return (
+        <div className="flex flex-col items-center gap-3 text-muted">
+          <FileIcon kind={file.kind} className="size-12" />
+          <p>{t("quickLook.noPreview", { ext: file.ext || t("quickLook.unknownExt") })}</p>
+        </div>
+      );
+  }
+}
+
+interface Props {
+  files: FileRecord[];
+  openId: number | null;
+  onNavigate: (id: number | null) => void;
+}
+
+export function QuickLook({ files, openId, onNavigate }: Props) {
+  const { t } = useTranslation("files");
+  const index = openId === null ? -1 : files.findIndex((f) => f.id === openId);
+  const file = files[index];
+  const preview = usePreview(file);
+
+  const go = (delta: number) => {
+    const next = files[index + delta];
+    if (next) onNavigate(next.id);
+  };
+
+  return (
+    <Dialog open={!!file} onOpenChange={(open) => !open && onNavigate(null)}>
+      <DialogContent
+        className="flex h-[85vh] max-w-6xl flex-col gap-3 p-4 focus-visible:ring-0"
+        // Focus the dialog itself, not the first button, so Space/arrows never "click" Previous/Next.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") go(1);
+          else if (e.key === "ArrowLeft" || e.key === "ArrowUp") go(-1);
+          else if (e.key === " " && !(e.target instanceof HTMLMediaElement)) onNavigate(null);
+          else return;
+          e.preventDefault();
+        }}
+      >
+        {file && (
+          <>
+            <div className="pr-8">
+              <DialogTitle className="truncate">{file.name}</DialogTitle>
+              <DialogDescription className="flex flex-wrap gap-x-4 font-mono text-xs">
+                <span className="truncate">{file.path}</span>
+                <span>{formatBytes(file.size)}</span>
+                <span>{formatDate(file.mtime)}</span>
+              </DialogDescription>
+            </div>
+            <div className="flex min-h-0 flex-1 gap-4">
+              <div className="flex min-w-0 flex-1 items-center justify-center">
+                <PreviewBody file={file} preview={preview} />
+              </div>
+              <aside className="w-64 shrink-0 overflow-y-auto border-l pl-3">
+                <FileDetails file={file} />
+              </aside>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted">
+              <button onClick={() => go(-1)} disabled={index <= 0} className="inline-flex items-center gap-1 disabled:opacity-40">
+                <ChevronLeft className="size-4" /> {t("quickLook.previous")}
+              </button>
+              <span className="tabular-nums">
+                {t("quickLook.position", { index: index + 1, total: files.length })}
+              </span>
+              <button onClick={() => go(1)} disabled={index >= files.length - 1} className="inline-flex items-center gap-1 disabled:opacity-40">
+                {t("quickLook.next")} <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** App-wide quick-look, opened from the file grid, chat file chips, review lists… */
+export function GlobalQuickLook() {
+  const { quickLookId, quickLookIds, openQuickLook, setFocus } = useSelection();
+  const files = useLiveQuery(async () => (await db.files.bulkGet([...quickLookIds])).filter((f): f is FileRecord => Boolean(f)), [quickLookIds]);
+  return (
+    <QuickLook
+      files={files ?? []}
+      openId={quickLookId}
+      onNavigate={(id) => {
+        openQuickLook(id);
+        if (id !== null) {
+          setFocus(id);
+          document.getElementById(`file-${id}`)?.scrollIntoView({ block: "nearest" });
+        }
+      }}
+    />
+  );
+}

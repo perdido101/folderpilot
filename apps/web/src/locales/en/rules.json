@@ -1,0 +1,111 @@
+{
+  "page": {
+    "title": "Rules",
+    "intro": "Structured rules run first (top to bottom), then natural-language rules via AI, then AI categorization.",
+    "runAll": "Run all…",
+    "newRule": "New rule",
+    "empty": "No rules yet. Try “If flag has screenshot → move to Temp”.",
+    "byAgent": "· by agent",
+    "enableRule": "Enable {{name}}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "editTest": "Edit / Test",
+    "editTestTitle": "Edit and test (dry run)",
+    "run": "Run…",
+    "deleteRule": "Delete rule {{name}}"
+  },
+  "natural": {
+    "title": "Plain-language rules",
+    "intro": "Given to the AI when it categorizes files.",
+    "placeholder": "e.g. Anything from Alpha Ltd is client work; bank PDFs are Statements",
+    "inputLabel": "New plain-language rule",
+    "add": "Add",
+    "enable": "Enable rule",
+    "convert": "Convert to structured",
+    "converting": "Converting…",
+    "delete": "Delete rule"
+  },
+  "toasts": {
+    "openFolder": "Open a folder first.",
+    "noMatches": "No files match — nothing to change.",
+    "connectAI": "Connect an AI in Settings to convert rules.",
+    "convertFailed": "The AI couldn't convert this rule.",
+    "incomplete": "Give the rule a name, at least one condition and one action."
+  },
+  "describe": {
+    "summary": "If {{conditions}} → {{actions}}",
+    "condition": "{{field}} {{op}} “{{value}}”",
+    "actionWithValue": "{{action}} “{{value}}”",
+    "and": "and",
+    "or": "or"
+  },
+  "builder": {
+    "editTitle": "Edit rule",
+    "newTitle": "New rule",
+    "description": "Rules never touch files on their own: running them creates a plan you approve.",
+    "namePlaceholder": "Rule name, e.g. Screenshots to Temp",
+    "nameLabel": "Rule name",
+    "if": "IF",
+    "ofTheseAreTrue": "of these are true",
+    "matchLabel": "Match",
+    "matchAll": "all",
+    "matchAny": "any",
+    "fieldLabel": "Field",
+    "operatorLabel": "Operator",
+    "valueLabel": "Value",
+    "removeCondition": "Remove condition",
+    "addCondition": "Condition",
+    "then": "THEN",
+    "actionLabel": "Action",
+    "actionValueLabel": "Action value",
+    "removeAction": "Remove action",
+    "addAction": "Action",
+    "variables": "Variables: {{vars}}",
+    "test": "Test: {{matches}} · {{changes}}",
+    "matches_one": "{{count}} file matches",
+    "matches_other": "{{count}} files match",
+    "changes_one": "{{count}} change",
+    "changes_other": "{{count}} changes",
+    "save": "Save rule",
+    "placeholders": {
+      "content": "invoice",
+      "category": "Invoices",
+      "tag": "paid",
+      "setCategory": "Screenshots",
+      "caption": "Caption"
+    }
+  },
+  "fields": {
+    "ext": "File extension",
+    "kind": "File type",
+    "name": "Name",
+    "content": "Content",
+    "date": "Modified date",
+    "size": "Size (MB)",
+    "folder": "Folder",
+    "category": "AI category",
+    "flag": "Flag",
+    "tag": "Tag"
+  },
+  "ops": {
+    "is": "is",
+    "is_not": "is not",
+    "contains": "contains",
+    "not_contains": "doesn't contain",
+    "starts_with": "starts with",
+    "before": "is before",
+    "after": "is after",
+    "within_days": "within last N days",
+    "gt": "is larger than",
+    "lt": "is smaller than",
+    "has": "has"
+  },
+  "actionTypes": {
+    "move": "Move to folder",
+    "rename": "Rename by pattern",
+    "tag": "Add tag",
+    "caption": "Set caption",
+    "set_category": "Set category",
+    "flag_review": "Flag for review"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Audit Log",
+  "openFolder": "Open a folder first.",
+  "emptyTitle": "No changes yet",
+  "emptyDescription": "Every move, rename, tag, caption, trash and rule change is logged here, with undo.",
+  "changes_one": "{{count}} change",
+  "changes_other": "{{count}} changes",
+  "running": "Running…",
+  "undoBatch": "Undo batch",
+  "more": "…and {{count}} more",
+  "undid_one": "Undid {{count}} change",
+  "undid_other": "Undid {{count}} changes",
+  "undidWithFailures": "Undid {{undone}}; {{failed}} failed: {{error}}"
+}

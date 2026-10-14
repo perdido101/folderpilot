@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 
-# Builds the app for https://<owner>.github.io/<repo>/ and publishes it to the gh-pages branch.
+# Builds the web app (device-only mode) for https://<owner>.github.io/<repo>/ and publishes it to the gh-pages branch.
 on:
   push:
     branches: [main]
@@ -18,18 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build:pages
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @folderpilot/web test
+      # Device-only build: Private mode in the browser, no server or accounts.
+      - run: pnpm --filter @folderpilot/web build:pages
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-      - name: Publish dist/ to gh-pages
+          VITE_LOCAL_ONLY: "1"
+      - name: Publish apps/web/dist to gh-pages
         run: |
-          cd dist
+          cd apps/web/dist
           touch .nojekyll
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"

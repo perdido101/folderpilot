@@ -8,14 +8,20 @@ Nothing changes on disk until you approve a plan, every change is logged and und
 See `CLAUDE.md` for the product spec and `PROGRESS.md` for status.
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173 — open in Chrome or Edge
-npm run build      # strict typecheck + production build (PWA)
-npm test           # Vitest unit tests
-npm run sample     # generate ./sample-messy (500+ messy test files); add -- <path> or --force
+pnpm install
+pnpm setup:env      # create .env with fresh secrets
+pnpm services:up    # Postgres + Redis (Docker)
+pnpm db:migrate && pnpm db:seed
+pnpm dev            # web http://localhost:5173 · API :3000 · worker
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build
+pnpm test:e2e       # Playwright smoke tests
+pnpm sample         # generate ./sample-messy (500+ messy test files)
 ```
+
+Sign in with `owner@folderpilot.local` / `folderpilot-demo`, or choose **“Use on this computer without an account”**.
+External accounts (Google, Microsoft, Dropbox, S3, Anthropic, Stripe…) are optional — see `docs/SETUP.md`.
 
 AI is optional. In **Settings** pick Local (Ollama), an OpenAI-compatible endpoint, or Anthropic, then click **Test connection**.
 
 **Live:** https://perdido101.github.io/folderpilot/ — redeployed by `.github/workflows/pages.yml` on every push to `main`
-(builds with `BASE_PATH=/folderpilot/` and publishes `dist/` to the `gh-pages` branch).
+(device-only build with `VITE_LOCAL_ONLY=1`, `BASE_PATH=/folderpilot/` and publishes `apps/web/dist/` to the `gh-pages` branch).

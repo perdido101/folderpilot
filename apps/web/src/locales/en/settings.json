@@ -1,0 +1,82 @@
+{
+  "title": "Settings",
+  "test": {
+    "button": "Test connection",
+    "fillFieldsFirst": "Fill in the fields above first."
+  },
+  "provider": {
+    "title": "AI provider",
+    "privacy": "Only thumbnails (max 512px) or extracted text are sent — never whole files. Keys stay in this browser.",
+    "options": {
+      "none": {
+        "title": "Off",
+        "text": "Local analysis only (duplicates, bad photos, keyword search)."
+      },
+      "ollama": {
+        "title": "Local — Ollama",
+        "text": "Runs on this computer. Nothing leaves your machine."
+      },
+      "openai": {
+        "title": "Your cloud — OpenAI-compatible",
+        "text": "OpenAI, Azure OpenAI, gateways, LM Studio, vLLM…"
+      },
+      "anthropic": {
+        "title": "Your cloud — Anthropic",
+        "text": "Claude API, or your Bedrock/Vertex proxy."
+      }
+    },
+    "autoAnalyze": "Analyze new files with AI automatically after indexing"
+  },
+  "fields": {
+    "ollamaUrl": "Ollama URL",
+    "visionModel": "Vision model",
+    "visionModelHint": "For photos and screenshots",
+    "textModel": "Text model",
+    "textModelHint": "For documents and the agent (needs tool support)",
+    "embedModel": "Embedding model",
+    "embedModelHint": "For semantic search",
+    "embedModelOptionalHint": "Optional, for semantic search",
+    "displayName": "Display name",
+    "displayNameHint": "Shown in the top bar",
+    "baseUrl": "Base URL",
+    "baseUrlOpenAIHint": "Ends in /v1 for most services",
+    "baseUrlAnthropicHint": "https://api.anthropic.com, or your proxy",
+    "apiKey": "API key",
+    "model": "Model",
+    "modelOpenAIHint": "Needs vision + tool calling",
+    "modelAnthropicHint": "e.g. claude-opus-5-5 or claude-haiku-5-5 (cheaper)",
+    "anthropicNoEmbeddings": "No embeddings with this provider, so search uses keywords."
+  },
+  "ollamaSetup": {
+    "title": "Allow FolderPilot to talk to Ollama (one time):",
+    "windows": "Windows: set an environment variable, then restart Ollama.",
+    "pull": "Then pull the models:"
+  },
+  "semantic": {
+    "title": "Semantic search",
+    "description": "Find files by meaning (“tax papers for the bakery”), not just by words. Needs a provider with embeddings.",
+    "build": "Build / update semantic index",
+    "starting": "Starting…",
+    "indexing": "Indexing {{progress}}",
+    "updated_one": "Semantic index updated ({{count}} file)",
+    "updated_other": "Semantic index updated ({{count}} files)",
+    "useInSearch": "Use semantic search in the search bar"
+  },
+  "thresholds": {
+    "title": "Analysis thresholds",
+    "description": "Tune what counts as a near-duplicate or a bad photo. Flags update right away.",
+    "value": "{{label}}: {{value}}",
+    "nearDuplicateDistance": "Near-duplicate distance (bits of 64)",
+    "blur": "Blurry below (sharpness)",
+    "dark": "Dark below (brightness 0–255)",
+    "tiny": "Tiny below (px, longest side)",
+    "confidence": "Needs Review below (AI confidence)"
+  },
+  "data": {
+    "title": "Data",
+    "description": "FolderPilot's index lives in this browser. Removing it never touches your files.",
+    "forget": "Forget this folder",
+    "forgetConfirm": "Forget “{{name}}”? Its index and pending plans are removed from FolderPilot (the audit log is kept). Your files stay exactly where they are.",
+    "forgotten": "Forgot “{{name}}”"
+  }
+}

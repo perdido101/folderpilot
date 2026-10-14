@@ -1,0 +1,37 @@
+{
+  "panel": {
+    "label": "Agent",
+    "title": "Agent",
+    "hint": "Plans need your approval"
+  },
+  "suggestions": {
+    "organizeByClient": "Organize this by client",
+    "findNda": "Find the signed NDA with Alpha",
+    "screenshotRule": "Make a rule: screenshots go to /Temp",
+    "duplicates": "Which duplicates can I clean up?"
+  },
+  "moreFiles": "+{{count}} more",
+  "empty": {
+    "title": "Ask in plain language",
+    "hint": "Every change is shown as a plan you approve first. The agent can't delete files.",
+    "noAI": "No AI connected — keyword search only. Connect one in Settings."
+  },
+  "thinking": "Thinking…",
+  "dropFiles": "Drop files to ask about them",
+  "input": {
+    "placeholder": "Ask FolderPilot…",
+    "placeholderNoFolder": "Open a folder first",
+    "label": "Message the agent",
+    "send": "Send"
+  },
+  "newConversation": "New conversation",
+  "removeAttachment": "Remove {{name}}",
+  "replies": {
+    "offlineTopMatches": "No AI is connected, so I searched by keyword. Found these top matches:",
+    "offlineFound_one": "No AI is connected, so I searched by keyword. Found {{count}} file:",
+    "offlineFound_other": "No AI is connected, so I searched by keyword. Found {{count}} files:",
+    "offlineNone": "No AI is connected yet (Settings → AI). I can still search by keyword, but nothing matched that.",
+    "planReady": "I've prepared a plan for you to review.",
+    "stopped": "I stopped after several steps. Could you narrow the request?"
+  }
+}

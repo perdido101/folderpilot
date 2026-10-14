@@ -1,0 +1,41 @@
+{
+  "stepLabels": {
+    "move": "Move",
+    "rename": "Rename",
+    "createFolder": "New folder",
+    "tag": "Tag",
+    "untag": "Untag",
+    "caption": "Caption",
+    "category": "Category",
+    "trash": "Trash",
+    "restore": "Restore",
+    "flag": "Flag",
+    "unflag": "Unflag",
+    "rule_create": "New rule",
+    "rule_update": "Edit rule"
+  },
+  "status": {
+    "pending": "pending",
+    "approved": "approved",
+    "executed": "executed",
+    "cancelled": "cancelled"
+  },
+  "actors": {
+    "user": "you",
+    "agent": "agent",
+    "rule": "rule"
+  },
+  "by": "by {{actor}}",
+  "more": "…and {{count}} more",
+  "failed": "{{count}} failed: {{error}}",
+  "edit": {
+    "title": "Edit plan",
+    "description": "Untick the changes you don't want. Nothing happens until you approve.",
+    "save_one": "Save {{count}} change",
+    "save_other": "Save {{count}} changes"
+  },
+  "review": {
+    "title": "Review plan",
+    "description": "Check the before → after preview. Nothing touches your files until you approve."
+  }
+}

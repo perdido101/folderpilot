@@ -1,0 +1,142 @@
+{
+  "language": {
+    "label": "Language"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "account": {
+    "signIn": "Sign in",
+    "switcher": "Organization and account",
+    "noOrg": "No organization",
+    "organizations": "Organizations",
+    "newOrg": "New organization",
+    "signOut": "Sign out"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "editor": "Editor",
+    "viewer": "Viewer"
+  },
+  "notifications": {
+    "label": "Notifications",
+    "empty": "You're all caught up."
+  },
+  "connect": {
+    "title": "Connect a source",
+    "subtitle": "Choose where your files live. FolderPilot organizes them in place.",
+    "needsSetup": "needs setup by an admin (see docs/SETUP.md)",
+    "sources": {
+      "device": {
+        "title": "Folder on this computer",
+        "description": "Open a local folder in this browser. Files never leave your computer."
+      },
+      "cloud": {
+        "title": "FolderPilot Cloud",
+        "description": "Upload files to FolderPilot's own secure storage."
+      },
+      "gdrive": {
+        "title": "Google Drive",
+        "description": "Organize files where they already are in Google Drive."
+      },
+      "onedrive": {
+        "title": "OneDrive & SharePoint",
+        "description": "Organize Microsoft 365 files and document libraries."
+      },
+      "dropbox": {
+        "title": "Dropbox",
+        "description": "Organize files in your Dropbox."
+      },
+      "server": {
+        "title": "Folder on a company server",
+        "description": "A self-hosted FolderPilot server pointing at your NAS or file share."
+      }
+    }
+  },
+  "modes": {
+    "private": "Private",
+    "cloud": "Cloud",
+    "connect": "Connect"
+  },
+  "new": {
+    "button": "New",
+    "upload": "Upload files",
+    "folder": "New folder",
+    "connect": "Connect a source…",
+    "soon": "Soon"
+  },
+  "spaces": {
+    "heading": "Spaces",
+    "empty": "No spaces yet — connect a source",
+    "deviceHint": "Folder on this computer (Private mode)",
+    "readOnly": "Read-only",
+    "serverHint": "Connected source (browsing arrives with its adapter)"
+  },
+  "nav": {
+    "label": "Sections",
+    "review": "Needs Review",
+    "recent": "Recent",
+    "allFiles": "All Files",
+    "categories": "Categories",
+    "duplicates": "Duplicates & Bad Files",
+    "rules": "Rules",
+    "approvals": "Pending Approvals",
+    "audit": "Audit Log",
+    "shared": "Shared",
+    "trash": "Trash",
+    "settings": "Settings",
+    "admin": "Admin"
+  },
+  "mini": {
+    "label": "Mini mode",
+    "hint": "Compact window with drop zone and agent"
+  },
+  "search": {
+    "placeholder": "Search names, captions, text… e.g. signed NDA Alpha 2025",
+    "label": "Search files",
+    "semanticOn": "Search by meaning is on",
+    "semanticOff": "Search by meaning is off"
+  },
+  "palette": {
+    "label": "Command palette"
+  },
+  "shortcuts": {
+    "label": "Keyboard shortcuts",
+    "title": "Keyboard shortcuts (?)"
+  },
+  "panel": {
+    "label": "Agent and details",
+    "hide": "Hide side panel",
+    "show": "Show side panel",
+    "agent": "Agent",
+    "details": "Details",
+    "agentHint": "Plans need your approval"
+  },
+  "ai": {
+    "off": "AI off",
+    "notSetUp": "AI not set up",
+    "local": "Local AI",
+    "cloud": "Your cloud: {{name}}",
+    "status": "AI status: {{label}}",
+    "localHint": "Runs on this computer — nothing leaves your machine.",
+    "offHint": "Local analysis (duplicates, bad photos, keyword search) works without AI.",
+    "cloudHint": "Only thumbnails (≤512px) and extracted text are sent to your endpoint. Never whole files.",
+    "openSettings": "Open AI settings →"
+  },
+  "browserNotice": {
+    "title": "Read-only mode.",
+    "body": "You can open folders, browse, find duplicates and use the AI and agent, but moving, renaming and trashing files needs the File System Access API.",
+    "brave": "In Brave, open <code>{{flag}}</code>, set it to <em>Enabled</em> and restart Brave.",
+    "other": "Use Chrome or Edge on desktop for full mode.",
+    "privacy": "Your files never leave your computer."
+  },
+  "details": {
+    "empty": "Select a file to see its details, why it was categorized, and its history.",
+    "history": "History",
+    "noHistory": "No changes yet."
+  }
+}

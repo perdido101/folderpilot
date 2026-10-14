@@ -1,0 +1,56 @@
+{
+  "title": "Command palette",
+  "placeholder": "Type a command, a file name, or ask the agent…",
+  "empty": "No matches.",
+  "groups": {
+    "files": "Files",
+    "goTo": "Go to",
+    "actions": "Actions",
+    "theme": "Theme",
+    "agent": "Agent"
+  },
+  "items": {
+    "chooseFolder": "Choose folder…",
+    "rescan": "Rescan “{{name}}”",
+    "analyze": "Analyze with AI",
+    "toggleAgent": "Toggle agent panel",
+    "openMini": "Open mini mode",
+    "shortcuts": "Keyboard shortcuts",
+    "lightTheme": "Light theme",
+    "darkTheme": "Dark theme",
+    "systemTheme": "System theme",
+    "ask": "Ask the agent: “{{query}}”"
+  },
+  "analyzed_one": "AI analyzed {{count}} file",
+  "analyzed_other": "AI analyzed {{count}} files",
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "FolderPilot works without a mouse.",
+    "groups": {
+      "anywhere": "Anywhere",
+      "files": "Files",
+      "quickLook": "Quick-look",
+      "review": "Review mode"
+    },
+    "keys": {
+      "clicks": "Click · Ctrl/⌘-click · Shift-click",
+      "arrows": "Arrow keys (+ Shift)",
+      "spaceEnterDouble": "Space / Enter / double-click"
+    },
+    "desc": {
+      "palette": "Command palette (navigate, act, ask the agent)",
+      "focusSearch": "Focus search",
+      "thisList": "This list",
+      "select": "Select · add/remove · range",
+      "selectAll": "Select all",
+      "moveFocus": "Move focus (extend selection)",
+      "quickLook": "Quick-look",
+      "clearSelection": "Clear selection",
+      "prevNext": "Previous / next file",
+      "close": "Close",
+      "keep": "Keep",
+      "trash": "Trash (moved to FolderPilot Trash)",
+      "back": "Back"
+    }
+  }
+}

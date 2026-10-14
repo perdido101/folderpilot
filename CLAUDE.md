@@ -1,143 +1,193 @@
-# FolderPilot — CLAUDE.md
+# FolderPilot — CLAUDE.md (Product spec v2)
 
-## What we're building
-FolderPilot is a web app (installable PWA) that **organizes, finds and cleans** messy files on the user's own computer.
-The user drags a folder from Windows Explorer into the app; FolderPilot indexes it, categorizes and renames files,
-finds duplicates and bad photos, writes captions, and lets the user talk to an AI agent in plain language
-("organize this by client", "find the signed NDA with Alpha", "make a rule: screenshots go to /Temp").
+> This is a real product, not a prototype. Build production-quality code: typed, tested, secure, documented.
+> Work through the phases at the bottom in order. After each phase: app runs, tests pass, PROGRESS.md updated, git commit.
+> If an existing prototype is in this repo, migrate it into the new structure — reuse UI components, rules engine, analysis workers.
 
-Primary market: **B2B** (small offices: accountants, law firms, agencies). Consumer version later.
+## 1. What FolderPilot is
+FolderPilot **organizes, finds and cleans files** with an AI agent you can talk to in plain language,
+custom rules (structured + natural language), duplicate/bad-file detection, captions, and search by meaning.
+B2B first (small offices, agencies, accountants, law firms), consumer second.
 
-## Non-negotiable principles
-1. **Files never leave the user's machine.** No backend touches files. The only network calls are to the AI provider the user configured (local Ollama, or their own cloud endpoint). Never send full files to any AI — send thumbnails (max 512px) or extracted text only.
-2. **The AI agent can NEVER delete.** There is no delete tool. It can only *flag* files as "suggested for deletion". Only a human can trash files, and trashing = moving to the FolderPilot Trash folder, never permanent deletion.
-3. **Plan → Approve → Execute.** Every change (move, rename, tag, caption, rule change) made by the agent or by rules is first shown as a plan (before/after, file count). Nothing touches the disk until the user clicks Approve.
-4. **Everything is logged and reversible.** Append-only audit log of every action (who: user/agent/rule, what, files, old → new, when, why). Undo per action and per batch.
-5. **Simple, calm UI.** Clean Ledger theme, light + dark. Fast, keyboard-friendly, no clutter.
+**One product, three modes** — same UI, same engine, different file source:
+1. **Connect** — organizes files where they already live: Google Drive, OneDrive/SharePoint, Dropbox. We store only metadata + index, never the files.
+2. **Cloud** — FolderPilot's own storage (S3-compatible: Cloudflare R2 / Backblaze B2 / Hetzner). Upload via web, desktop app, or Explorer sync drive.
+3. **Private** — files never leave the customer's systems. Either (a) a single user in the browser/desktop app on a local folder, or (b) a self-hosted server (Docker) on the company network pointing at their NAS/file share. AI = local (Ollama) or their own cloud AI endpoint.
 
-## Scope for this prototype
-IN: drag & drop folder, indexing, grid/list views, local analysis (duplicates, bad photos), AI categorization/captions/rename suggestions, structured + plain-language rules, plan/approve/execute engine, audit log + undo, Trash, agent chat, search, command palette, mini mode, light/dark.
-OUT (for now): watched folders, persistent folder permissions across restarts, accounts/login, multi-user/roles, connectors (SharePoint/Drive), desktop tray app (later via Tauri — keep UI components reusable so mini mode can become the tray popup).
+## 2. Non-negotiable principles
+1. **The AI agent can NEVER delete.** No delete tool exists anywhere — not in the agent, not in the MCP server. It may only *flag* files "suggested for deletion". Only a human trashes files; trash is recoverable (FolderPilot Trash or the provider's own trash), retention configurable (default 30 days).
+2. **Plan → Approve → Execute.** Every change by agent, rule, MCP client or bulk action is first a Plan (before/after, file count). Nothing changes until a human with permission approves. Admins may allow auto-run for small plans (configurable threshold) and for rules explicitly set to "auto".
+3. **Everything audited and reversible.** Append-only audit log (DB-enforced: no UPDATE/DELETE). Undo per action and per batch. Undo checks for conflicts (file changed since) and asks instead of overwriting.
+4. **Privacy by mode.** In Private mode no file content or thumbnail leaves the customer environment except to the AI endpoint they configured. In all modes: send AI only thumbnails (≤512px) or extracted text, never full files. We never train on customer files.
+5. **Tenant isolation.** Every query is scoped by organization. Tokens and keys encrypted at rest.
+6. **Simple, calm UI.** Clean Ledger theme, light + dark. Familiar cloud-drive conventions, our own look.
 
-## Tech stack
-- Vite + React + TypeScript (strict)
-- Tailwind CSS + shadcn/ui, lucide-react icons, framer-motion (subtle only)
-- Zustand for UI state
-- Dexie (IndexedDB) for index, rules, audit log, settings
-- Web Workers for heavy work (hashing, image analysis) — never block the UI thread
-- Libraries: exifr (EXIF), pdfjs-dist (PDF text), mammoth (DOCX text), cmdk (command palette)
-- PWA (vite-plugin-pwa) so it installs as its own window
-- Target browsers: Chrome & Edge desktop. Show a friendly notice on others.
+## 3. Architecture (monorepo: pnpm + Turborepo, TypeScript strict everywhere)
+```
+apps/
+  web/        Vite + React SPA (main app + /mini compact mode)
+  server/     Node API (Hono) — auth, orgs, files, plans, rules, agent, search, billing, webhooks
+  worker/     Background jobs (BullMQ): indexing, analysis, AI, embeddings, rule runs, provider sync
+  mcp/        MCP server (stdio + Streamable HTTP)
+  desktop/    Tauri 2 app: tray icon + mini window, local folders, uploader, Explorer sync drive (Windows)
+packages/
+  core/       Domain logic: types, storage-adapter interface, action/plan engine, rules engine, undo, audit
+  ai/         AI provider layer + prompts + zod schemas
+  analysis/   dHash, blur, brightness, EXIF, text extraction (shared by browser workers and server worker)
+  ui/         Shared React components (shadcn/ui based), theme tokens
+  db/         Drizzle schema + migrations (Postgres + pgvector)
+deploy/
+  docker-compose.selfhost.yml   Private-mode server: server, worker, mcp, postgres, redis, ollama (optional)
+  docker-compose.dev.yml
+```
+**Tech:** Hono, Drizzle ORM, PostgreSQL 16 + pgvector, Redis + BullMQ, Better Auth (email, Google, Microsoft, organizations, SSO-ready), Stripe, AWS SDK v3 (S3-compatible), sharp (server thumbnails), pdfjs / mammoth / exifr, ClamAV (upload scanning, Cloud mode), Vitest + Playwright, zod everywhere at boundaries.
+Frontend: React, TypeScript, Tailwind, shadcn/ui, lucide-react, framer-motion (subtle), Zustand, TanStack Query, cmdk.
 
-## File access (File System Access API)
-- Folder drop: in the drop handler use `DataTransferItem.getAsFileSystemHandle()`; if it's a directory handle, call `requestPermission({ mode: 'readwrite' })`.
-- Also offer a "Choose folder" button using `showDirectoryPicker({ mode: 'readwrite' })`.
-- Move/rename: use `FileSystemHandle.move()` when available; otherwise copy to destination, verify size, then remove the original. Wrap in one function `moveFile()` with tests.
-- Trash: a hidden `.folderpilot-trash/` folder inside the root folder; store original path so it can be restored.
-- Skip system/hidden files and the trash folder when indexing.
-
-## AI provider layer
-One interface, three implementations, chosen in Settings:
+## 4. Storage adapter (the heart of the three modes)
+All file I/O goes through one interface in `packages/core`. Nothing else touches files.
 ```ts
-interface AIProvider {
-  describeImage(thumb: Blob, ctx: AnalyzeContext): Promise<FileInsight>; // category, tags, caption, suggestedName, confidence
-  describeText(text: string, meta: FileMeta, ctx: AnalyzeContext): Promise<FileInsight>;
-  chat(messages: ChatMessage[], tools: ToolDef[]): Promise<ChatResult>; // tool calling for the agent
-  embed?(texts: string[]): Promise<number[][]>;
+interface StorageAdapter {
+  id: 'local-browser' | 'local-server' | 'fp-cloud' | 'gdrive' | 'onedrive' | 'dropbox';
+  list(path: string, cursor?: string): Promise<Page<FileEntry>>;
+  stat(ref: FileRef): Promise<FileEntry>;               // includes version/etag for conflict checks
+  readThumbnail(ref: FileRef, maxPx: number): Promise<Blob | null>;
+  readText(ref: FileRef, maxChars: number): Promise<string | null>;
+  download(ref: FileRef): Promise<ReadableStream>;      // for preview/download only
+  upload?(parent: FileRef, file: Blob, name: string): Promise<FileEntry>;
+  move(ref: FileRef, newParent: FileRef, opts: { expectVersion: string }): Promise<FileEntry>;
+  rename(ref: FileRef, newName: string, opts: { expectVersion: string }): Promise<FileEntry>;
+  createFolder(parent: FileRef, name: string): Promise<FileEntry>;
+  trash(ref: FileRef): Promise<void>;                   // HUMAN-ONLY, enforced by the action engine
+  restore(ref: FileRef): Promise<void>;
+  changes(cursor?: string): Promise<{ entries: ChangeEvent[]; cursor: string }>; // incremental sync
+  subscribe?(webhookUrl: string): Promise<Subscription>; // push notifications where supported
 }
 ```
-1. **Local — Ollama** at `http://localhost:11434` (user must set `OLLAMA_ORIGINS` to allow the app's origin; show instructions in Settings). Default models configurable (a small vision model + a small text model).
-2. **Bring your own — OpenAI-compatible endpoint** (covers Azure OpenAI, many gateways, local servers): base URL + key + model.
-3. **Bring your own — Anthropic** (Claude API or their Bedrock/Vertex proxy): base URL + key + model. Direct browser calls need header `anthropic-dangerous-direct-browser-access: true`.
-- Keys are stored locally only (IndexedDB), never sent anywhere except the chosen endpoint.
-- Always request strict JSON output; validate with zod; on low confidence (< 0.6) send the file to "Needs Review" instead of guessing.
-- Top bar shows an AI status pill: "Local AI" (green) or "Your cloud: <name>" (blue), with a test-connection button.
+Implementations:
+- **local-browser** — File System Access API (Chrome/Edge): folder drag-drop via `getAsFileSystemHandle()`, `showDirectoryPicker`, `move()` with copy+verify+remove fallback. Trash = `.folderpilot-trash/`.
+- **local-server** — Node fs on mounted paths (NAS/SMB) for self-hosted Private mode; chokidar watcher for changes.
+- **fp-cloud** — S3-compatible bucket; folders/structure live in Postgres (objects keyed by id, not path, so moves are DB-only); versioning on; multipart + resumable uploads; quotas per org.
+- **gdrive** — Google Drive API v3: `files.list`, `changes.list` + `changes.watch`, move via `addParents/removeParents`, rename via `name`, thumbnails via `thumbnailLink`, Docs export as text, trash via `trashed=true`.
+- **onedrive** — Microsoft Graph: drive items, `delta` query, subscriptions (webhooks), `PATCH parentReference/name`, thumbnails endpoint; supports SharePoint document libraries.
+- **dropbox** — `list_folder` + `/continue` cursors, webhooks, `move_v2`, `get_thumbnail_v2`, trash via `delete_v2` (recoverable in Dropbox).
+OAuth tokens encrypted (AES-256-GCM, key from env), refreshed automatically. Respect provider rate limits with backoff.
 
-## Data model (Dexie)
-- `roots` — connected folders (handle, name, addedAt)
-- `files` — id, rootId, path, name, ext, size, mtime, sha256, dhash, blurScore, brightness, width, height, exif, textExcerpt, category, tags[], caption, suggestedName, confidence, status ('indexed'|'analyzed'|'needs_review'|'organized'|'trashed'), flags[] ('duplicate'|'near_duplicate'|'blurry'|'dark'|'tiny'|'screenshot'|'suggested_delete')
-- `rules` — id, type ('structured'|'natural'), name, enabled, priority, conditions[], actions[], naturalText, createdBy, createdAt
-- `plans` — id, source ('agent'|'rule'|'user'), summary, steps[] ({fileId, action, from, to, before, after}), status ('pending'|'approved'|'executed'|'cancelled')
-- `audit` — append-only: id, at, actor ('user'|'agent'|'rule:<id>'), action, fileIds[], before, after, reason, planId, batchId, undone (bool)
-- `settings` — theme, aiProvider config, thresholds
+## 5. AI provider layer (`packages/ai`)
+```ts
+interface AIProvider {
+  describeImage(thumb: Blob, ctx: AnalyzeContext): Promise<FileInsight>;
+  describeText(text: string, meta: FileMeta, ctx: AnalyzeContext): Promise<FileInsight>;
+  chat(messages: ChatMessage[], tools: ToolDef[], opts?: ChatOpts): AsyncIterable<ChatEvent>; // streaming + tool calls
+  embed(texts: string[]): Promise<number[][]>;
+}
+// FileInsight: { category, tags[], caption, suggestedName, entities {client?, date?, amount?, docType?}, confidence }
+```
+Implementations: **FolderPilot AI** (our hosted default: Anthropic Claude via our key — small fast model for analysis, stronger model for the agent), **Ollama** (local), **OpenAI-compatible** (Azure OpenAI, gateways, LM Studio, vLLM), **Anthropic / Bedrock / Vertex** (customer's own account).
+- Configurable per org, overridable per folder/space (e.g. /Legal = local only).
+- Strict JSON outputs validated with zod; confidence < 0.6 → "Needs Review", never guess.
+- Prompt includes active natural-language rules + org category list + language preference (Greek/English, detect per file).
+- Embeddings: provider embed when available; fallback local embedding model via Ollama; final fallback keyword-only.
+- Cost controls: per-org monthly AI budget, batch processing for bulk imports, cache results by content hash (same file = no re-analysis).
+- Top bar AI status pill: "FolderPilot AI" / "Local AI" / "Your cloud: <name>" + test connection.
 
-## Rules engine
-- **Structured rules**: visual IF → THEN builder.
-  - Conditions: file type/extension, name contains, content contains, date range, size, folder, AI category, has flag.
-  - Actions: move to folder (supports variables `{year}`, `{month}`, `{category}`, `{client}`, `{type}`), rename by pattern, add tag, set caption, flag for review.
-- **Natural-language rules**: free text, injected into the AI prompt. The agent offers to convert them to structured rules when possible (shown for user approval).
-- Order: structured rules first (by priority) → natural-language rules (via AI) → AI default categorization.
-- "Test rule" button: dry-run shows how many and which files would be affected.
-- When a user drags a file to a different category, offer: "Make this a rule?"
+## 6. Data model (Postgres, `packages/db`)
+- `organizations`, `users`, `memberships` (role: owner | admin | editor | viewer), `invitations`
+- `spaces` — a connected source: mode, adapter id, root ref, encrypted credentials, sync cursor, settings (AI provider override, auto-run threshold)
+- `files` — id, org, space, providerRef, parentId, path, name, ext, mime, size, mtime, version/etag, sha256, dhash, blurScore, brightness, width, height, exif (jsonb), textExcerpt, category, tags[], caption, suggestedName, entities (jsonb), confidence, status, flags[], embedding vector(1024)
+- `versions` — file version history (Cloud mode)
+- `rules` — type structured|natural, scope (org/space/folder), priority, enabled, mode (suggest|auto), conditions (jsonb), actions (jsonb), naturalText, createdBy
+- `plans` + `plan_steps` — source (user|agent|rule|mcp), summary, status (pending|approved|executing|executed|partially_failed|cancelled), approvedBy
+- `audit_events` — append-only (trigger blocks UPDATE/DELETE): at, org, actor (user:<id> | agent:<user> | rule:<id> | mcp:<client>:<user>), action, fileIds, before, after, reason, planId, batchId, undoneBy
+- `trash_items`, `shares` (Cloud mode links), `api_keys` (MCP/API, hashed), `ai_usage`, `subscriptions` (Stripe), `notifications`
 
-## Agent (chat panel)
-Tools available to the agent (NO delete tool exists):
-- `list_files(filter)`, `search_files(query)`, `get_file(id)`
-- `propose_plan(steps, summary)` — moves, renames, tags, captions
-- `create_rule(rule)` / `update_rule(id, changes)` — always as a proposal needing approval
-- `flag_for_deletion(fileIds, reason)` — only flags; human decides in Review
-- `explain(fileId)` — why a file was categorized the way it was
-- `undo(batchId)` — proposes an undo plan
-Behavior: answer questions directly; for any change, return a Plan Card (summary, file count, before/after preview, Approve / Edit / Cancel). Respect the current folder scope. Reply in the user's language (Greek or English).
+## 7. Action & plan engine (`packages/core`)
+- The ONLY path that changes files. Steps: move | rename | createFolder | tag | caption | setCategory | trash (human-only) | restore.
+- Validates permissions (user role + folder access), enforces "no trash unless actor is a human user", checks `expectVersion` per step (conflict → step marked conflicted, user decides).
+- Executes in batches with progress events (SSE/WebSocket to UI), idempotent and resumable.
+- Writes audit events per step; produces an inverse plan for undo.
+- Undo single action / whole batch / "everything the agent did since X".
 
-## Search
-- Keyword search over name, path, caption, tags, extracted text.
-- Semantic search via `embed()` when the provider supports it (cosine similarity, vectors stored in Dexie). Fall back to keyword if not.
-- Natural queries in the search bar or agent ("the signed NDA with Alpha from 2025").
+## 8. Rules engine
+- **Structured**: IF conditions (type, ext, name/content contains, regex, date range, size, folder, AI category, entity e.g. client, has flag, source space) THEN actions (move to path with variables `{year} {month} {category} {client} {docType}`, rename pattern, tag, caption, flag for review, set category).
+- **Natural language**: free text, injected into AI context; agent offers conversion to structured (shown as a proposal).
+- Order: structured by priority → natural via AI → AI default. First matching move wins; tags accumulate.
+- Mode per rule: suggest (creates plans) or auto (executes, still audited + undoable).
+- Dry-run "Test rule" with affected count + sample. "Make this a rule?" after manual recategorization.
+- Runs on: new/changed files (from sync/webhooks/uploads), manual "Run on folder", schedule.
 
-## Local analysis (Web Worker, no AI, free)
-- SHA-256 → exact duplicates. dHash (64-bit) → near-duplicates (Hamming distance ≤ 6, configurable).
-- Blur: Laplacian variance on a downscaled grayscale image. Brightness: mean luminance. Tiny: < 300px.
-- Screenshot heuristic: filename patterns + common screen aspect ratios + no EXIF camera.
-- EXIF via exifr. PDF text via pdfjs (first 2 pages). DOCX via mammoth.
-- Duplicate groups suggest "keep best" (highest resolution, sharpest, oldest original).
+## 9. Agent
+Streaming chat panel (right side, collapsible) + mini mode + command palette entry. Tools:
+`search_files`, `list_files`, `get_file`, `explain_categorization`, `propose_plan`, `propose_rule`, `update_rule_proposal`, `flag_for_deletion`, `propose_undo`, `get_audit(filter)`, `stats(question)` (counts/aggregates over the index).
+No delete/trash tool. All changes returned as Plan Cards: summary, count, before/after preview, Approve / Edit / Cancel. Answers in the user's language. Scoped to what the user can access. Every tool call logged.
 
-## UI / UX
-Layout:
-- **Left sidebar**: Needs Review (badge), All Files, Categories, Rules, Duplicates & Bad Files, Audit Log, Trash, Settings.
-- **Center**: grid (images) / table (docs) toggle; big drop zone when empty ("Drop a folder here — or choose one").
-- **Right panel**: Agent chat, docked, collapsible.
-- **Top bar**: search, AI status pill, theme toggle.
+## 10. MCP server (`apps/mcp`)
+Purpose: let OTHER AI apps use FolderPilot (Claude Desktop, Claude Code, ChatGPT-style clients, local-LLM apps like LM Studio / Ollama front-ends that support MCP).
+- Transports: **stdio** (Private/local; launched by desktop app or `npx folderpilot-mcp`) and **Streamable HTTP** at `/mcp` (Cloud/Connect; OAuth 2.1 or per-user API key).
+- Tools mirror the agent tools: search_files, list_files, get_file, explain_categorization, propose_plan, propose_rule, flag_for_deletion, get_audit, stats. **No delete. No approve.** Proposed plans appear in the FolderPilot UI "Pending approvals" for a human; tool returns the plan id + a link.
+- Optional admin setting: allow MCP clients to auto-run plans under N files (default off).
+- Resources: `folderpilot://file/{id}` (metadata + caption + text excerpt), `folderpilot://rules`. Prompts: "organize folder", "find document".
+- Actor in audit = `mcp:<clientName>:<userId>`. Rate-limited. Scoped to the key's user permissions.
+- README section: config snippets for Claude Desktop, Claude Code, and a local-LLM MCP client.
 
-Modern, simple interactions:
-- Command palette (Ctrl/⌘+K) for navigation, actions and asking the agent
-- Drag & drop everywhere (folders into the app, files onto categories, files into chat)
-- Multi-select with floating action bar (Move / Tag / Rename / Ask agent / Trash)
-- Inline editing of name, caption, tags
-- Quick-look preview (Space) with arrow-key navigation
-- Review mode for duplicates/bad photos: keep (→) / trash (←), keyboard + click
-- Undo toast after every action ("Moved 23 files · Undo")
-- Per-file processing shimmer while AI works, then it settles into its category
-- Keyboard shortcuts with a "?" overlay
-- **Mini mode**: compact window layout (~400×520) with drop zone, prompt box, results/plan cards, last actions with Undo, and "Open full app". Build it as a standalone route/component (`/mini`) — it will later become the Tauri tray popup.
+## 11. Search
+Hybrid: Postgres full-text (name, path, caption, tags, extracted text, entities) + pgvector semantic similarity, merged with reciprocal-rank fusion. Filters: type, date, category, space, flags, person/client. Natural queries in search bar and agent.
 
-## Theme: Clean Ledger (light + dark)
-Use CSS variables + Tailwind. Font: Inter (UI), JetBrains Mono (paths, audit log).
-Light:
-- --bg #FAFAF7 · --surface #FFFFFF · --surface-2 #F3F2EE · --border #E6E4DE
-- --text #1F2328 · --muted #6B7280
-- --accent #0F766E (deep teal) · --accent-soft #E6F2F0
-- --success #15803D · --warning #B54708 · --danger #B42318
-Dark:
-- --bg #0F1114 · --surface #16191D · --surface-2 #1C2025 · --border #262A30
-- --text #E7E9EC · --muted #9AA1AB
-- --accent #2DD4BF · --accent-soft #12302C
-- --success #4ADE80 · --warning #FBBF24 · --danger #F87171
-Style rules: 8px radius, 1px borders instead of heavy shadows, generous spacing, one accent color, motion 150–200ms ease-out, respect prefers-reduced-motion. Light/dark/system toggle.
+## 12. Local analysis (no AI cost)
+SHA-256 exact duplicates; dHash near-duplicates (Hamming ≤ 6, configurable); Laplacian blur; brightness; tiny images; screenshot heuristic; EXIF; text extraction (PDF first pages, DOCX, TXT, Google Docs export). "Keep best" suggestion for duplicate groups. Runs in browser Web Workers (local-browser) or worker service (all other modes).
 
-## Build phases (do one at a time; app must run after each)
-1. Scaffold, theme (light/dark), layout shell, drop/choose folder, index files, grid/list view, quick-look.
-2. Local analysis worker + Duplicates & Bad Files view + review mode.
-3. AI provider layer + Settings + analysis pipeline (categories, tags, captions, suggested names) + Needs Review.
-4. Action engine: plans, approve/execute, moveFile(), Trash, audit log, undo (single + batch), undo toasts.
-5. Rules: structured builder, natural-language rules, test/dry-run, "make this a rule?".
-6. Agent chat with tools + Plan Cards.
-7. Search (keyword + semantic).
-8. Command palette, shortcuts overlay, mini mode, polish, empty states.
+## 13. Cloud mode specifics
+Uploads: drag-drop files/folders, resumable multipart, progress tray. ClamAV scan on upload. Previews: images, PDF, video/audio, text; Office files via viewer integration (placeholder adapter, later OnlyOffice/Collabora). Share links (view/download, expiry, password). Version history + restore. Storage quotas per plan, usage meter, pay-as-you-go overage counted daily. Abuse report endpoint + admin takedown flow. EU region by default.
 
-## Engineering rules
-- TypeScript strict, small components, no `any`.
-- All disk-changing code goes through the action engine — nothing else may move/rename files.
-- Write unit tests (Vitest) for: moveFile, rules evaluation, undo, dHash/duplicate grouping, AI JSON parsing.
-- Test with a messy sample folder of 500+ mixed files (images, PDFs, DOCX, screenshots, duplicates). Create a script `scripts/make-sample-folder.ts` that generates one.
-- Keep a `PROGRESS.md` updated after each phase: what's done, what's next, known issues.
+## 14. Desktop app (`apps/desktop`, Tauri 2)
+- **Tray icon** (bottom-right) → **mini window** (~400×520) above the tray: drop zone (drag folders/files from Explorer), prompt box, results/Plan Cards, last actions + Undo, "Open full app". Reuses the web `/mini` components.
+- Global shortcut (Ctrl+Shift+Space) to open mini window.
+- Local folders as `local-server`-style adapter via Rust fs commands (Private mode, single user).
+- **Uploader**: choose folders to upload/back up to Cloud mode (one-way, resumable).
+- **Explorer integration (Windows)**: context menu "Organize with FolderPilot" / "Ask FolderPilot about this folder".
+- **Sync drive (Windows, last phase)**: Windows Cloud Files API (cfapi) placeholders — FolderPilot appears in Explorer, files hydrate on open, status icons, two-way sync with conflict copies. Use a maintained Rust crate (e.g. `cloud-filter`). Build behind a feature flag.
+- Auto-update, code signing placeholders, launches stdio MCP server on demand.
+
+## 15. Billing (Stripe) — config-driven, prices are placeholders
+Plans defined in `packages/core/plans.ts` (limits: storage GB, AI files/month, seats, features). Tentative: Free, Personal, Plus, Business (per seat), Connect-only (per seat), Private (license key, manual invoicing). Pay-as-you-go storage overage via metered billing. Checkout, customer portal, webhooks, grace periods. Feature gates read from the plan.
+
+## 16. UI / UX (Clean Ledger)
+Familiar cloud-drive conventions (left nav, big "New" button, breadcrumbs, grid/list, right-click menus, details panel, Recent, Shared, Trash) — our own look, never copy another product's layout, colors, icons or wording.
+- **Left sidebar**: New (Upload / New folder / Connect source), Spaces (each connected source with mode badge), Needs Review (badge), Recent, Categories, Duplicates & Bad Files, Rules, Pending Approvals, Audit Log, Shared (Cloud), Trash, Settings / Admin.
+- **Center**: grid/list toggle, breadcrumbs, multi-select + floating action bar, inline editing, quick-look (Space), review mode (→ keep / ← trash), drop zone empty state.
+- **Right**: Agent panel (docked, collapsible) + Details panel (file history, why categorized, versions).
+- **Top bar**: hybrid search, AI status pill, notifications, theme toggle, org switcher.
+- Command palette (Ctrl/⌘+K), keyboard shortcuts + "?" overlay, undo toasts, live processing shimmer, onboarding wizard (pick mode → connect source → pick starter rules → first organize).
+- `/mini` route: compact mode (also used by desktop tray).
+- Admin: members & roles, spaces, AI provider settings, auto-run thresholds, retention, MCP/API keys, billing, audit export (CSV/PDF).
+- i18n: English + Greek from day one (all strings in locale files).
+
+Theme tokens (CSS variables): Inter (UI), JetBrains Mono (paths/audit).
+Light: --bg #FAFAF7 · --surface #FFFFFF · --surface-2 #F3F2EE · --border #E6E4DE · --text #1F2328 · --muted #6B7280 · --accent #0F766E · --accent-soft #E6F2F0 · --success #15803D · --warning #B54708 · --danger #B42318
+Dark: --bg #0F1114 · --surface #16191D · --surface-2 #1C2025 · --border #262A30 · --text #E7E9EC · --muted #9AA1AB · --accent #2DD4BF · --accent-soft #12302C · --success #4ADE80 · --warning #FBBF24 · --danger #F87171
+8px radius, 1px borders over shadows, one accent, motion 150–200ms ease-out, prefers-reduced-motion respected.
+
+## 17. Security & compliance
+Better Auth sessions, CSRF protection, rate limiting, input validation (zod), encrypted secrets (AES-256-GCM), least-privilege OAuth scopes, signed webhook verification, RLS-style org scoping enforced in a single data-access layer, security headers/CSP, dependency audit in CI, GDPR: data export + account deletion (human-initiated, with grace period), DPA-ready docs in /docs, structured logs without file contents.
+
+## 18. Configuration
+`.env.example` documenting every variable, grouped: DATABASE_URL, REDIS_URL, APP_URL, ENCRYPTION_KEY, BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID/SECRET, MICROSOFT_CLIENT_ID/SECRET/TENANT, DROPBOX_APP_KEY/SECRET, S3_ENDPOINT/BUCKET/ACCESS_KEY/SECRET/REGION, ANTHROPIC_API_KEY, FP_AI_ANALYSIS_MODEL, FP_AI_AGENT_MODEL, OLLAMA_URL, STRIPE_SECRET_KEY/WEBHOOK_SECRET/PRICE_IDs, CLAMAV_HOST, MCP_PUBLIC_URL. Everything that needs an external account must degrade gracefully (feature hidden + "not configured" notice) so the app runs locally with only Postgres + Redis.
+`docs/SETUP.md`: step-by-step for creating each external app/key (Google Cloud OAuth, Microsoft Entra app, Dropbox app, Stripe, R2/B2 bucket, Anthropic key, Ollama).
+
+## 19. Quality
+Vitest unit tests (action engine, undo, conflicts, rules, adapters with mocks, AI JSON parsing, dHash), integration tests against Postgres, Playwright E2E for core flows (connect/upload → analyze → review → rule → agent plan → approve → undo). Seed script + messy sample dataset generator (500+ mixed files). CI (GitHub Actions): lint, typecheck, test, build. PROGRESS.md after every phase.
+
+## 20. Build phases
+1. **Monorepo + foundations**: Turborepo, packages, db schema + migrations, Better Auth with organizations/roles, Hono API skeleton, web app shell with theme/i18n/layout, docker-compose.dev. Migrate any existing prototype code.
+2. **Core engine**: StorageAdapter interface, action/plan engine, audit (append-only), undo, trash/restore, conflict checks — with full tests. `local-browser` adapter wired to the web app.
+3. **Analysis + AI**: analysis package (browser + worker), BullMQ worker, AI provider layer (all four providers), insight pipeline, Needs Review, Duplicates & Bad Files + review mode.
+4. **Rules**: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers.
+5. **Agent**: tools, streaming chat, Plan Cards, Pending Approvals, command palette integration, mini mode.
+6. **Search**: full-text + pgvector hybrid, filters, search UI.
+7. **Cloud mode**: fp-cloud adapter, uploads, previews, versions, shares, quotas, ClamAV.
+8. **Connect mode**: Google Drive, OneDrive/SharePoint, Dropbox adapters, OAuth, changes/webhooks sync.
+9. **Private mode**: local-server adapter, docker-compose.selfhost, license key check, AI per-space override.
+10. **MCP server**: stdio + HTTP, tools/resources/prompts, auth, docs with client configs.
+11. **Billing + admin**: Stripe plans, metering, feature gates, admin pages, audit export, GDPR export/delete.
+12. **Desktop app**: Tauri tray + mini window, global shortcut, local folders, uploader, Explorer context menu, stdio MCP launcher.
+13. **Windows sync drive** (feature flag): cfapi placeholders, hydration, two-way sync, conflicts.
+14. **Hardening**: E2E suite, performance with 100k files, security review checklist, onboarding polish, docs.

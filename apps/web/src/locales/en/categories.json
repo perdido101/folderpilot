@@ -1,0 +1,18 @@
+{
+  "uncategorized": "Uncategorized",
+  "title": "Categories",
+  "noFolder": "Open a folder first.",
+  "emptyTitle": "No categories yet",
+  "emptyDescription": "Run “Analyze with AI” on All Files to sort files into categories like Invoices, Contracts and Photos.",
+  "backToCategories": "Back to categories",
+  "detailHint_one": "{{count}} file · drag files onto another category in the list to re-categorize",
+  "detailHint_other": "{{count}} files · drag files onto another category in the list to re-categorize",
+  "moveIntoFolder": "Move into “{{category}}” folder…",
+  "alreadyOrganized": "Already organized.",
+  "dropTargets": "Drop targets",
+  "intro": "Drag files from All Files onto a category to re-categorize them.",
+  "summary_one": "{{count}} file · {{size}}",
+  "summary_other": "{{count}} files · {{size}}",
+  "movedTo": "Moved to “{{category}}”",
+  "makeRule": "Make this a rule?"
+}

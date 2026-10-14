@@ -1,0 +1,25 @@
+{
+  "notFound": {
+    "title": "Not found",
+    "description": "This page doesn't exist."
+  },
+  "recent": {
+    "title": "Recent",
+    "noSpace": "Connect a source to see recently changed files.",
+    "subtitle_one": "The latest changed file in {{space}}",
+    "subtitle_other": "The {{count}} most recently changed files in {{space}}",
+    "empty": "No files yet."
+  },
+  "approvals": {
+    "title": "Pending approvals",
+    "noSpace": "Connect a source first.",
+    "emptyTitle": "Nothing waiting for approval",
+    "empty": "Plans from the agent, rules and bulk actions appear here until someone approves them.",
+    "subtitle_one": "{{count}} plan waits for a human to approve it. Nothing changes until then.",
+    "subtitle_other": "{{count}} plans wait for a human to approve them. Nothing changes until then."
+  },
+  "shared": {
+    "title": "Shared",
+    "description": "Share links (view or download, with expiry and password) for files in FolderPilot Cloud."
+  }
+}

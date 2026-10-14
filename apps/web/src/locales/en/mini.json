@@ -1,0 +1,10 @@
+{
+  "openFullApp": "Open full app",
+  "dropHere": "Drop a folder here",
+  "indexing_one": "Indexing… {{count}} file",
+  "indexing_other": "Indexing… {{count}} files",
+  "chooseFolder": "Choose folder",
+  "lastActions": "Last actions",
+  "undoFailed": "Couldn't undo: {{error}}",
+  "undid": "Undid {{undone}}"
+}

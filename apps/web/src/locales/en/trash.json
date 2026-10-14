@@ -1,0 +1,11 @@
+{
+  "title": "Trash",
+  "noFolder": "Open a folder first.",
+  "emptyTitle": "Trash is empty",
+  "emptyDescription": "Trashed files are moved to a hidden .folderpilot-trash folder inside your folder and can always be restored.",
+  "summary_one": "{{count}} file · {{size}} in <mono>.folderpilot-trash</mono>. To free space for good, empty that folder yourself in Explorer.",
+  "summary_other": "{{count}} files · {{size}} in <mono>.folderpilot-trash</mono>. To free space for good, empty that folder yourself in Explorer.",
+  "restoreAll": "Restore all",
+  "restore": "Restore",
+  "was": "was {{path}}"
+}

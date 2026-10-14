@@ -1,0 +1,26 @@
+{
+  "appName": "FolderPilot",
+  "actions": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "done": "Done",
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "approve": "Approve",
+    "edit": "Edit",
+    "back": "Back",
+    "retry": "Try again",
+    "continue": "Continue",
+    "delete": "Delete",
+    "remove": "Remove"
+  },
+  "status": {
+    "loading": "Loading…",
+    "comingInPhase": "Available in phase {{phase}}",
+    "notConfigured": "Not configured",
+    "error": "Something went wrong: {{message}}"
+  },
+  "file_one": "{{count}} file",
+  "file_other": "{{count}} files"
+}

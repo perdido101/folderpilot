@@ -1,0 +1,153 @@
+{
+  "analysis": {
+    "lastError": "Τελευταίο σφάλμα: {{message}}",
+    "ai": "Ανάλυση με AI {{done}}/{{total}}",
+    "local": "Τοπική ανάλυση {{done}}/{{total}}"
+  },
+  "browser": {
+    "empty": "Αυτός ο φάκελος δεν έχει αρχεία."
+  },
+  "flags": {
+    "duplicate": "Πανομοιότυπο αντίγραφο",
+    "near_duplicate": "Σχεδόν ίδιο",
+    "blurry": "Θολή",
+    "dark": "Σκοτεινή",
+    "tiny": "Πολύ μικρή",
+    "screenshot": "Στιγμιότυπο οθόνης",
+    "suggested_delete": "Προτείνεται για διαγραφή"
+  },
+  "details": {
+    "clickToEdit": "Κάντε κλικ για επεξεργασία",
+    "name": "Όνομα",
+    "useSuggested": "Χρήση προτεινόμενου: {{name}}",
+    "category": "Κατηγορία",
+    "notCategorized": "Χωρίς κατηγορία",
+    "caption": "Λεζάντα",
+    "addCaption": "Προσθήκη λεζάντας",
+    "tags": "Ετικέτες",
+    "removeTag": "Αφαίρεση ετικέτας {{tag}}",
+    "tagPlaceholder": "ετικέτα",
+    "addTag": "Προσθήκη ετικέτας",
+    "flags": "Επισημάνσεις",
+    "ai": "AI",
+    "confidence": "Βεβαιότητα {{percent}}%",
+    "client": "πελάτης: {{client}}",
+    "details": "Λεπτομέρειες",
+    "size": "Μέγεθος",
+    "modified": "Τροποποίηση",
+    "pixels": "Pixel",
+    "camera": "Κάμερα"
+  },
+  "grid": {
+    "needsReview": "Προς έλεγχο",
+    "analyzing": "Ανάλυση με AI σε εξέλιξη"
+  },
+  "table": {
+    "columns": {
+      "name": "Όνομα",
+      "path": "Φάκελος",
+      "category": "Κατηγορία",
+      "kind": "Τύπος",
+      "size": "Μέγεθος",
+      "mtime": "Τροποποίηση"
+    },
+    "flag_one": "{{count}} επισήμανση",
+    "flag_other": "{{count}} επισημάνσεις"
+  },
+  "page": {
+    "kinds": {
+      "all": "Όλα",
+      "images": "Εικόνες",
+      "docs": "Έγγραφα",
+      "other": "Άλλα"
+    },
+    "readOnly": "Μόνο ανάγνωση",
+    "readOnlyHint": "Άνοιξε χωρίς το File System Access API: τα αρχεία δεν μπορούν να μετακινηθούν ή να μετονομαστούν",
+    "summary_one": "{{count, number}} αρχείο · {{size}}",
+    "summary_other": "{{count, number}} αρχεία · {{size}}",
+    "rescan": "Επανασάρωση",
+    "rescanHint": "Αναζήτηση νέων, τροποποιημένων και διαγραμμένων αρχείων",
+    "analyzeAI": "Ανάλυση με AI",
+    "analyzeAICount": "Ανάλυση με AI ({{count}})",
+    "notAnalyzed_one": "{{count}} αρχείο δεν έχει αναλυθεί ακόμη με AI",
+    "notAnalyzed_other": "{{count}} αρχεία δεν έχουν αναλυθεί ακόμη με AI",
+    "connectAIHint": "Συνδέστε ένα AI στις Ρυθμίσεις",
+    "connectAIToast": "Συνδέστε ένα AI στις Ρυθμίσεις για κατηγοριοποίηση, λεζάντες και ονόματα αρχείων.",
+    "organize": "Οργάνωση",
+    "runRules": "Εκτέλεση όλων των κανόνων…",
+    "renameSuggested": "Μετονομασία με τα ονόματα που πρότεινε το AI…",
+    "moveByPattern": "Μετακίνηση σε φακέλους βάσει μοτίβου…",
+    "folderPerCategory": "Φάκελος ανά κατηγορία…",
+    "folderPerClient": "Φάκελος ανά πελάτη…",
+    "results_one": "{{count}} αποτέλεσμα για «{{query}}»",
+    "results_other": "{{count}} αποτελέσματα για «{{query}}»",
+    "semantic": "σημασιολογική",
+    "accessReadOnly": "Επιλέξτε ξανά τον φάκελο «{{name}}» για προεπισκοπήσεις και ανάλυση (οι φάκελοι μόνο ανάγνωσης δεν διατηρούνται μεταξύ επισκέψεων).",
+    "accessPrompt": "Επιτρέψτε ξανά την πρόσβαση στον φάκελο «{{name}}» για προεπισκοπήσεις, ανάλυση και οργάνωση.",
+    "chooseFolder": "Επιλογή φακέλου",
+    "allowAccess": "Παροχή πρόσβασης",
+    "cancelled": "Η ευρετηρίαση ακυρώθηκε — η λίστα είναι ελλιπής. Πατήστε Επανασάρωση για να ολοκληρωθεί.",
+    "noMatch": "Κανένα αρχείο δεν ταιριάζει με «{{query}}».",
+    "noType": "Δεν υπάρχουν αρχεία αυτού του τύπου.",
+    "dropToOpen": "Αφήστε τον φάκελο για να ανοίξει",
+    "semanticFailed": "Η σημασιολογική αναζήτηση απέτυχε: {{message}}",
+    "aiAnalyzed_one": "Το AI ανέλυσε {{count}} αρχείο",
+    "aiAnalyzed_other": "Το AI ανέλυσε {{count}} αρχεία",
+    "aiNeedReview_one": "{{count}} προς έλεγχο",
+    "aiNeedReview_other": "{{count}} προς έλεγχο",
+    "aiFailed": "{{count}} απέτυχαν",
+    "nothingToChange": "Δεν υπάρχει τίποτα για αλλαγή.",
+    "patternDialog": {
+      "title": "Μετακίνηση σε φακέλους βάσει μοτίβου",
+      "description": "Κάθε αρχείο μετακινείται στον φάκελο που ορίζει το μοτίβο. Θα δείτε το Σχέδιο πριν αλλάξει οτιδήποτε.",
+      "label": "Μοτίβο φακέλου",
+      "confirm": "Προεπισκόπηση Σχεδίου"
+    },
+    "view": {
+      "label": "Προβολή",
+      "grid": "Πλέγμα",
+      "table": "Πίνακας"
+    }
+  },
+  "quickLook": {
+    "unavailable": "Δεν είναι δυνατή η ανάγνωση του αρχείου. Επιτρέψτε την πρόσβαση στον φάκελο ή ίσως έχει μετακινηθεί.",
+    "truncated": "… (η προεπισκόπηση περικόπηκε)",
+    "noPreview": "Δεν υπάρχει ακόμη προεπισκόπηση για αρχεία .{{ext}}.",
+    "unknownExt": "άγνωστο",
+    "previous": "Προηγούμενο",
+    "next": "Επόμενο",
+    "position": "{{index}} / {{total}} · Space ή Esc για κλείσιμο"
+  },
+  "selection": {
+    "selected": "{{count, number}} επιλεγμένα",
+    "move": "Μετακίνηση",
+    "tag": "Ετικέτα",
+    "rename": "Μετονομασία",
+    "askAgent": "Ρωτήστε τον Βοηθό",
+    "trash": "Στον Κάδο",
+    "clear": "Εκκαθάριση επιλογής",
+    "clearHint": "Εκκαθάριση επιλογής (Esc)",
+    "moveDialog": {
+      "title_one": "Μετακίνηση {{count}} αρχείου",
+      "title_other": "Μετακίνηση {{count}} αρχείων",
+      "description": "Φάκελος μέσα σε αυτόν τον κύριο φάκελο. Δημιουργείται αν χρειαστεί. Μεταβλητές: {year} {month} {category} {client} {type}.",
+      "label": "Φάκελος προορισμού",
+      "confirm": "Μετακίνηση"
+    },
+    "tagDialog": {
+      "title_one": "Ετικέτα σε {{count}} αρχείο",
+      "title_other": "Ετικέτα σε {{count}} αρχεία",
+      "label": "Ετικέτα",
+      "placeholder": "εξοφλημένο",
+      "confirm": "Προσθήκη ετικέτας"
+    },
+    "renameDialog": {
+      "title_one": "Μετονομασία {{count}} αρχείου",
+      "title_other": "Μετονομασία {{count}} αρχείων",
+      "description": "Μεταβλητές μοτίβου: {name} {n} (αρίθμηση) {date} {year} {month} {category} {client}. Η επέκταση διατηρείται.",
+      "label": "Μοτίβο",
+      "confirm": "Μετονομασία",
+      "useAI": "Χρήση ονομάτων που πρότεινε το AI ({{count}})"
+    }
+  }
+}

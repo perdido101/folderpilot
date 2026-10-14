@@ -1,0 +1,27 @@
+{
+  "title": "Members & roles",
+  "subtitle": "People in {{org}} and what they can do.",
+  "notAllowed": "Only owners and admins can manage members.",
+  "role": "Role",
+  "rolesHelp": "Owners manage everything incl. billing. Admins manage members, spaces and settings. Editors organize files and approve plans. Viewers can look and propose, but not change files.",
+  "invite": {
+    "title": "Invite someone",
+    "failed": "Couldn't send the invitation.",
+    "sent": "Invitation created for {{email}}.",
+    "emailPlaceholder": "name@company.com",
+    "email": "Email address",
+    "submit": "Invite",
+    "hint": "Email delivery isn't configured yet: the invitation link appears in the server log (see docs/SETUP.md).",
+    "pending": "Pending",
+    "cancel": "Cancel invitation"
+  },
+  "members": {
+    "title_one": "{{count}} member",
+    "title_other": "{{count}} members",
+    "you": "you",
+    "updateFailed": "Couldn't update the member.",
+    "updated": "{{name}}'s role was updated.",
+    "confirmRemove": "Remove {{name}} from the organization? Their files and history stay.",
+    "remove": "Remove"
+  }
+}

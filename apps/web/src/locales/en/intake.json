@@ -1,0 +1,23 @@
+{
+  "dropZone": {
+    "release": "Release to open this folder",
+    "title": "Drop a folder here — or choose one",
+    "subtitle": "Drag a folder from Windows Explorer. FolderPilot will index it so you can browse, find and clean it up.",
+    "choose": "Choose folder",
+    "readOnlyNotice": "This browser opens folders read-only: you can browse, find duplicates and use the AI and agent, but organizing files on disk needs Chrome or Edge.",
+    "privacy": "Your files never leave your computer.",
+    "openError": "Couldn't open that folder."
+  },
+  "progress": {
+    "title": "Indexing “{{name}}”",
+    "subtitle": "Reading file names, sizes and dates. Nothing is changed on disk.",
+    "files_one": "file",
+    "files_other": "files",
+    "folders_one": "folder",
+    "folders_other": "folders"
+  },
+  "drop": {
+    "notFolder": "That looks like a file. Drop a folder instead.",
+    "failed": "Couldn't open the dropped folder."
+  }
+}

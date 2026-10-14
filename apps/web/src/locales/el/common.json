@@ -1,0 +1,26 @@
+{
+  "appName": "FolderPilot",
+  "actions": {
+    "cancel": "Ακύρωση",
+    "close": "Κλείσιμο",
+    "save": "Αποθήκευση",
+    "done": "Τέλος",
+    "undo": "Αναίρεση",
+    "dismiss": "Απόρριψη",
+    "approve": "Έγκριση",
+    "edit": "Επεξεργασία",
+    "back": "Πίσω",
+    "retry": "Δοκιμάστε ξανά",
+    "continue": "Συνέχεια",
+    "delete": "Διαγραφή",
+    "remove": "Αφαίρεση"
+  },
+  "status": {
+    "loading": "Φόρτωση…",
+    "comingInPhase": "Διαθέσιμο στη φάση {{phase}}",
+    "notConfigured": "Δεν έχει ρυθμιστεί",
+    "error": "Κάτι πήγε στραβά: {{message}}"
+  },
+  "file_one": "{{count}} αρχείο",
+  "file_other": "{{count}} αρχεία"
+}

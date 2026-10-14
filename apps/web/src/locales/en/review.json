@@ -1,0 +1,29 @@
+{
+  "row": {
+    "preview": "Preview {{name}}",
+    "sure": "{{percent}}% sure",
+    "noDescription": "No description",
+    "category": "Category",
+    "newNamePlaceholder": "Better name (optional)",
+    "newName": "New name",
+    "accept": "Accept",
+    "why": "Why: {{reason}}",
+    "defaultReason": "suggested for deletion",
+    "keep": "Keep",
+    "trash": "Trash"
+  },
+  "page": {
+    "title": "Needs Review",
+    "noFolder": "Open a folder first.",
+    "emptyTitle": "Nothing to review",
+    "emptyDescription": "Files the AI wasn't sure about, and files suggested for deletion, show up here for you to decide.",
+    "deletionTitle": "Suggested for deletion",
+    "deletionHint": "{{count}} · you decide; trashing is reversible",
+    "keepAll": "Keep all",
+    "unsureTitle": "AI wasn't sure",
+    "unsureHint": "{{count}} · confirm or correct the category",
+    "reanalyze": "Re-analyze",
+    "reanalyzed": "Re-analyzed: {{confident}} confident, {{unsure}} still unsure",
+    "acceptAll": "Accept all"
+  }
+}

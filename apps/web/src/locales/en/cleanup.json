@@ -1,0 +1,59 @@
+{
+  "tabs": {
+    "exact": "Exact duplicates",
+    "near": "Near-duplicates",
+    "blurry": "Blurry",
+    "dark": "Dark",
+    "tiny": "Tiny",
+    "screenshot": "Screenshots"
+  },
+  "reasons": {
+    "exact": "Identical content",
+    "near": "Looks almost the same",
+    "blurry": "Looks blurry",
+    "dark": "Very dark",
+    "tiny": "Very small image",
+    "screenshot": "Screenshot"
+  },
+  "group": {
+    "copies_one": "{{count}} copy",
+    "copies_other": "{{count}} copies",
+    "reclaimable": "{{size}} reclaimable",
+    "trash_one": "Trash {{count}} copy",
+    "trash_other": "Trash {{count}} copies",
+    "keepBest": "Keep best",
+    "trashReasonExact": "Exact duplicates of {{name}}",
+    "trashReasonNear": "Near duplicates of {{name}}"
+  },
+  "page": {
+    "title": "Duplicates & Bad Files",
+    "noFolder": "Open a folder first. Duplicates, blurry, dark and tiny photos show up here.",
+    "analyzing": "Analyzing…",
+    "analyzed": "{{analyzed}} of {{total}} files analyzed locally",
+    "inExactCopies": "{{size}} in exact copies",
+    "trashAll": "Trash all copies, keep best",
+    "trashAllReasonExact": "All exact duplicates (kept best copy)",
+    "trashAllReasonNear": "All near duplicates (kept best copy)",
+    "reviewOneByOne": "Review one by one ({{count}})",
+    "stillAnalyzing": "Still analyzing — duplicates appear as files are hashed.",
+    "noDuplicates": "No duplicates found. Nice and tidy.",
+    "nothingHere": "Nothing here."
+  },
+  "review": {
+    "title": "Review: {{title}}",
+    "auditReason": "Review: {{title}}",
+    "allReviewed": "All reviewed.",
+    "progress": "{{index}} of {{total}} — {{reason}}",
+    "hint": "→ keep · ← trash · Backspace to go back",
+    "sharpness": "sharpness {{value}}",
+    "suggestedKeep": "Suggested to keep (best copy)",
+    "thisCopy": "This copy",
+    "thisFile": "This file",
+    "trash": "Trash",
+    "keep": "Keep",
+    "summary": "{{trash}} to trash · {{keep}} to keep",
+    "explainer": "Trashed files go to the hidden FolderPilot Trash folder and can be restored anytime. Nothing is deleted.",
+    "startOver": "Start over",
+    "moveToTrash": "Move {{count}} to Trash"
+  }
+}

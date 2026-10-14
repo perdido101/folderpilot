@@ -1,0 +1,153 @@
+{
+  "analysis": {
+    "lastError": "Last error: {{message}}",
+    "ai": "AI analyzing {{done}}/{{total}}",
+    "local": "Analyzing locally {{done}}/{{total}}"
+  },
+  "browser": {
+    "empty": "This folder has no files."
+  },
+  "flags": {
+    "duplicate": "Exact duplicate",
+    "near_duplicate": "Near-duplicate",
+    "blurry": "Blurry",
+    "dark": "Dark",
+    "tiny": "Tiny",
+    "screenshot": "Screenshot",
+    "suggested_delete": "Suggested for deletion"
+  },
+  "details": {
+    "clickToEdit": "Click to edit",
+    "name": "Name",
+    "useSuggested": "Use suggested: {{name}}",
+    "category": "Category",
+    "notCategorized": "Not categorized",
+    "caption": "Caption",
+    "addCaption": "Add a caption",
+    "tags": "Tags",
+    "removeTag": "Remove tag {{tag}}",
+    "tagPlaceholder": "tag",
+    "addTag": "Add tag",
+    "flags": "Flags",
+    "ai": "AI",
+    "confidence": "{{percent}}% confident",
+    "client": "client: {{client}}",
+    "details": "Details",
+    "size": "Size",
+    "modified": "Modified",
+    "pixels": "Pixels",
+    "camera": "Camera"
+  },
+  "grid": {
+    "needsReview": "Needs review",
+    "analyzing": "AI is analyzing"
+  },
+  "table": {
+    "columns": {
+      "name": "Name",
+      "path": "Folder",
+      "category": "Category",
+      "kind": "Type",
+      "size": "Size",
+      "mtime": "Modified"
+    },
+    "flag_one": "{{count}} flag",
+    "flag_other": "{{count}} flags"
+  },
+  "page": {
+    "kinds": {
+      "all": "All",
+      "images": "Images",
+      "docs": "Documents",
+      "other": "Other"
+    },
+    "readOnly": "Read-only",
+    "readOnlyHint": "Opened without the File System Access API: files can't be moved or renamed",
+    "summary_one": "{{count, number}} file · {{size}}",
+    "summary_other": "{{count, number}} files · {{size}}",
+    "rescan": "Rescan",
+    "rescanHint": "Look for new, changed and removed files",
+    "analyzeAI": "Analyze with AI",
+    "analyzeAICount": "Analyze with AI ({{count}})",
+    "notAnalyzed_one": "{{count}} file not analyzed by AI yet",
+    "notAnalyzed_other": "{{count}} files not analyzed by AI yet",
+    "connectAIHint": "Connect an AI in Settings",
+    "connectAIToast": "Connect an AI in Settings to categorize, caption and name files.",
+    "organize": "Organize",
+    "runRules": "Run all rules…",
+    "renameSuggested": "Rename to AI-suggested names…",
+    "moveByPattern": "Move into folders by pattern…",
+    "folderPerCategory": "Folder per category…",
+    "folderPerClient": "Folder per client…",
+    "results_one": "{{count}} result for “{{query}}”",
+    "results_other": "{{count}} results for “{{query}}”",
+    "semantic": "semantic",
+    "accessReadOnly": "Choose “{{name}}” again to see previews and analyze it (read-only folders aren't kept between visits).",
+    "accessPrompt": "Allow access to “{{name}}” again to see previews, analyze and organize.",
+    "chooseFolder": "Choose folder",
+    "allowAccess": "Allow access",
+    "cancelled": "Indexing was cancelled — the list is incomplete. Click Rescan to finish.",
+    "noMatch": "No files match “{{query}}”.",
+    "noType": "No files of this type.",
+    "dropToOpen": "Drop to open this folder",
+    "semanticFailed": "Semantic search failed: {{message}}",
+    "aiAnalyzed_one": "AI analyzed {{count}} file",
+    "aiAnalyzed_other": "AI analyzed {{count}} files",
+    "aiNeedReview_one": "{{count}} needs review",
+    "aiNeedReview_other": "{{count}} need review",
+    "aiFailed": "{{count}} failed",
+    "nothingToChange": "Nothing to change.",
+    "patternDialog": {
+      "title": "Move into folders by pattern",
+      "description": "Every file is moved to the folder the pattern gives. You'll review the plan before anything changes.",
+      "label": "Folder pattern",
+      "confirm": "Preview plan"
+    },
+    "view": {
+      "label": "View",
+      "grid": "Grid",
+      "table": "Table"
+    }
+  },
+  "quickLook": {
+    "unavailable": "Can't read this file. Allow folder access, or it may have been moved.",
+    "truncated": "… (preview truncated)",
+    "noPreview": "No preview for .{{ext}} files yet.",
+    "unknownExt": "unknown",
+    "previous": "Previous",
+    "next": "Next",
+    "position": "{{index}} / {{total}} · Space or Esc to close"
+  },
+  "selection": {
+    "selected": "{{count, number}} selected",
+    "move": "Move",
+    "tag": "Tag",
+    "rename": "Rename",
+    "askAgent": "Ask agent",
+    "trash": "Trash",
+    "clear": "Clear selection",
+    "clearHint": "Clear selection (Esc)",
+    "moveDialog": {
+      "title_one": "Move {{count}} file",
+      "title_other": "Move {{count}} files",
+      "description": "Folder inside this root. It's created if needed. Variables: {year} {month} {category} {client} {type}.",
+      "label": "Destination folder",
+      "confirm": "Move"
+    },
+    "tagDialog": {
+      "title_one": "Tag {{count}} file",
+      "title_other": "Tag {{count}} files",
+      "label": "Tag",
+      "placeholder": "paid",
+      "confirm": "Add tag"
+    },
+    "renameDialog": {
+      "title_one": "Rename {{count}} file",
+      "title_other": "Rename {{count}} files",
+      "description": "Pattern variables: {name} {n} (counter) {date} {year} {month} {category} {client}. The extension is kept.",
+      "label": "Pattern",
+      "confirm": "Rename",
+      "useAI": "Use AI-suggested names ({{count}})"
+    }
+  }
+}
