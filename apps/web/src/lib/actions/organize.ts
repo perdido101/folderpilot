@@ -2,7 +2,7 @@
 import { db, type FileRecord } from "../db";
 import { planAllRules, renderTemplate, type Rule } from "@folderpilot/core";
 import i18n from "@/i18n";
-import { createPlan } from "./engine";
+import { createPlan, LOCAL_ACTOR } from "./engine";
 import { renameSteps } from "./user-actions";
 
 const live = (files: FileRecord[]) => files.filter((f) => f.status !== "trashed");
@@ -13,7 +13,7 @@ export async function proposeSuggestedNames(rootId: number, files: FileRecord[])
     "ai",
   );
   if (!steps.length) return null;
-  return createPlan({ rootId, source: "user", actor: "user", summary: i18n.t("actions:summaries.renameSuggested"), steps });
+  return createPlan({ rootId, source: "user", actor: LOCAL_ACTOR.user, summary: i18n.t("actions:summaries.renameSuggested"), steps });
 }
 
 export async function proposeFolders(rootId: number, files: FileRecord[], template: string): Promise<number | null> {
@@ -27,7 +27,7 @@ export async function proposeFolders(rootId: number, files: FileRecord[], templa
     return to === f.path ? [] : [{ fileId: f.id, action: "move" as const, from: f.path, to, before: f.path, after: to }];
   });
   if (!steps.length) return null;
-  return createPlan({ rootId, source: "user", actor: "user", summary: i18n.t("actions:summaries.organizeFolders", { template }), steps });
+  return createPlan({ rootId, source: "user", actor: LOCAL_ACTOR.user, summary: i18n.t("actions:summaries.organizeFolders", { template }), steps });
 }
 
 export async function proposeRules(rootId: number, ruleId?: Rule["id"]): Promise<number | null> {
@@ -39,7 +39,7 @@ export async function proposeRules(rootId: number, ruleId?: Rule["id"]): Promise
   return createPlan({
     rootId,
     source: "rule",
-    actor: ruleId !== undefined ? `rule:${ruleId}` : "rule",
+    actor: ruleId !== undefined ? `rule:${ruleId}` : "rule:all",
     summary: name ? i18n.t("actions:summaries.runRule", { name }) : i18n.t("actions:summaries.runAllRules"),
     steps,
   });

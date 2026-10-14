@@ -85,7 +85,7 @@ interface AIProvider {
 Implementations: **FolderPilot AI** (our hosted default: Anthropic Claude via our key — small fast model for analysis, stronger model for the agent), **Ollama** (local), **OpenAI-compatible** (Azure OpenAI, gateways, LM Studio, vLLM), **Anthropic / Bedrock / Vertex** (customer's own account).
 - Configurable per org, overridable per folder/space (e.g. /Legal = local only).
 - Strict JSON outputs validated with zod; confidence < 0.6 → "Needs Review", never guess.
-- Prompt includes active natural-language rules + org category list + language preference (Greek/English, detect per file).
+- Prompt includes active natural-language rules + org category list. Output language: English.
 - Embeddings: provider embed when available; fallback local embedding model via Ollama; final fallback keyword-only.
 - Cost controls: per-org monthly AI budget, batch processing for bulk imports, cache results by content hash (same file = no re-analysis).
 - Top bar AI status pill: "FolderPilot AI" / "Local AI" / "Your cloud: <name>" + test connection.
@@ -118,7 +118,7 @@ Implementations: **FolderPilot AI** (our hosted default: Anthropic Claude via ou
 ## 9. Agent
 Streaming chat panel (right side, collapsible) + mini mode + command palette entry. Tools:
 `search_files`, `list_files`, `get_file`, `explain_categorization`, `propose_plan`, `propose_rule`, `update_rule_proposal`, `flag_for_deletion`, `propose_undo`, `get_audit(filter)`, `stats(question)` (counts/aggregates over the index).
-No delete/trash tool. All changes returned as Plan Cards: summary, count, before/after preview, Approve / Edit / Cancel. Answers in the user's language. Scoped to what the user can access. Every tool call logged.
+No delete/trash tool. All changes returned as Plan Cards: summary, count, before/after preview, Approve / Edit / Cancel. Always answers in English. Scoped to what the user can access. Every tool call logged.
 
 ## 10. MCP server (`apps/mcp`)
 Purpose: let OTHER AI apps use FolderPilot (Claude Desktop, Claude Code, ChatGPT-style clients, local-LLM apps like LM Studio / Ollama front-ends that support MCP).
@@ -159,7 +159,7 @@ Familiar cloud-drive conventions (left nav, big "New" button, breadcrumbs, grid/
 - Command palette (Ctrl/⌘+K), keyboard shortcuts + "?" overlay, undo toasts, live processing shimmer, onboarding wizard (pick mode → connect source → pick starter rules → first organize).
 - `/mini` route: compact mode (also used by desktop tray).
 - Admin: members & roles, spaces, AI provider settings, auto-run thresholds, retention, MCP/API keys, billing, audit export (CSV/PDF).
-- i18n: English + Greek from day one (all strings in locale files).
+- i18n: all strings in locale files. **English only** (owner's decision; no Greek or other languages unless asked).
 
 Theme tokens (CSS variables): Inter (UI), JetBrains Mono (paths/audit).
 Light: --bg #FAFAF7 · --surface #FFFFFF · --surface-2 #F3F2EE · --border #E6E4DE · --text #1F2328 · --muted #6B7280 · --accent #0F766E · --accent-soft #E6F2F0 · --success #15803D · --warning #B54708 · --danger #B42318

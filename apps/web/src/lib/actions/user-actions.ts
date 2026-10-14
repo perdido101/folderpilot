@@ -1,5 +1,5 @@
 /** One-click user actions: run through the engine, then show "… · Undo". */
-import { db, type FileRecord, type PlanStep } from "../db";
+import { db, type FileRecord, type StepInput } from "../db";
 import { sanitizeSuggestedName } from "@folderpilot/ai";
 import { renderTemplate } from "@folderpilot/core";
 import i18n from "@/i18n";
@@ -30,7 +30,7 @@ export function showResult(res: ExecResult) {
   });
 }
 
-async function run(rootId: number, summary: string, steps: PlanStep[], reason?: string) {
+async function run(rootId: number, summary: string, steps: StepInput[], reason?: string) {
   if (steps.length === 0) {
     toast(i18n.t("actions:toasts.nothingToChange"));
     return null;
@@ -80,7 +80,7 @@ export const restoreFiles = (rootId: number, files: FileRecord[]) =>
   );
 
 export function moveFiles(rootId: number, files: FileRecord[], folderTemplate: string) {
-  const steps: PlanStep[] = files.flatMap((f) => {
+  const steps: StepInput[] = files.flatMap((f) => {
     const folder = renderTemplate(folderTemplate, f).replace(/^\/+|\/+$/g, "");
     const to = join(folder, f.name);
     return to === f.path ? [] : [{ fileId: f.id, action: "move" as const, from: f.path, to, before: f.path, after: to }];
@@ -106,7 +106,7 @@ export function untagFile(rootId: number, file: FileRecord, tag: string) {
 }
 
 /** Rename by pattern ({name} {n} {date} {category} …) or to the AI's suggested names. */
-export function renameSteps(files: FileRecord[], pattern: string | "ai"): PlanStep[] {
+export function renameSteps(files: FileRecord[], pattern: string | "ai"): StepInput[] {
   return files.flatMap((f, i) => {
     const raw =
       pattern === "ai" ? (f.suggestedName ?? "") : renderTemplate(pattern.replace(/\{n\}/g, String(i + 1).padStart(String(files.length).length, "0")), f);

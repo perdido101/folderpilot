@@ -7,5 +7,6 @@
   "summary_other": "{{count}} files · {{size}} in <mono>.folderpilot-trash</mono>. To free space for good, empty that folder yourself in Explorer.",
   "restoreAll": "Restore all",
   "restore": "Restore",
-  "was": "was {{path}}"
+  "was": "was {{path}}",
+  "keptUntil": "kept at least until {{date}}"
 }

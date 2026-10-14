@@ -289,8 +289,10 @@ export function SettingsPage() {
             disabled={!root}
             onClick={async () => {
               if (!root || !confirm(t("data.forgetConfirm", { name: root.name }))) return;
-              await db.transaction("rw", [db.files, db.roots, db.plans, db.embeddings], async () => {
+              await db.transaction("rw", [db.files, db.roots, db.plans, db.embeddings, db.trash], async () => {
+                // Only FolderPilot's own index of this folder is forgotten; files on disk and the audit log stay.
                 await db.files.where("rootId").equals(root.id).delete();
+                await db.trash.where("rootId").equals(root.id).delete();
                 await db.plans.where("rootId").equals(root.id).delete();
                 await db.embeddings.where("rootId").equals(root.id).delete();
                 await db.roots.delete(root.id);

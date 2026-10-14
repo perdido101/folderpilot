@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Check, ListChecks, Pencil, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ListChecks, Pencil, RotateCw, SkipForward, X } from "lucide-react";
 import { Button } from "@folderpilot/ui";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@folderpilot/ui";
 import { db, type PlanRecord, type PlanStep } from "@/lib/db";
-import { cancelPlan, describeSteps, updatePlanSteps } from "@/lib/actions/engine";
-import { approvePlan } from "@/lib/actions/user-actions";
+import { cancelPlan, describeSteps, resolveConflict, updatePlanSteps } from "@/lib/actions/engine";
+import { approvePlan, showResult } from "@/lib/actions/user-actions";
+import { toast } from "@/stores/toasts";
 import { cn } from "@folderpilot/ui";
 
 export function StepRow({ step, names }: { step: PlanStep; names: Map<number, string> }) {
@@ -15,7 +16,9 @@ export function StepRow({ step, names }: { step: PlanStep; names: Map<number, st
   const isPath = step.action === "move" || step.action === "rename" || step.action === "trash" || step.action === "restore";
   return (
     <div className="flex items-start gap-2 py-1.5 text-xs">
-      <span className="mt-0.5 w-16 shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-center font-medium text-muted">{t(`stepLabels.${step.action}`)}</span>
+      <span className="mt-0.5 w-16 shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-center font-medium text-muted" title={step.undoes !== undefined ? t(`stepLabels.${step.action}`) : undefined}>
+        {step.undoes !== undefined ? t("stepLabels.undo") : t(`stepLabels.${step.action}`)}
+      </span>
       <div className="min-w-0 flex-1">
         {name && !isPath && <p className="truncate font-medium">{name}</p>}
         <p className={cn("truncate text-muted", isPath && "font-mono text-[11px]")} title={step.before}>
@@ -42,8 +45,10 @@ const fileCount = (steps: PlanStep[]) => new Set(steps.map((s) => s.fileId).filt
 function useActorLabel() {
   const { t } = useTranslation(["plans", "common"]);
   return (actor: string) => {
-    if (actor === "user" || actor === "agent") return t(`actors.${actor}`);
+    if (actor === "user" || actor.startsWith("user:")) return t("actors.user");
+    if (actor === "agent" || actor.startsWith("agent:")) return t("actors.agent");
     if (actor === "rule" || actor.startsWith("rule:")) return t("actors.rule");
+    if (actor.startsWith("mcp:")) return t("actors.mcp", { client: actor.split(":")[1] });
     return actor;
   };
 }
@@ -79,7 +84,9 @@ export function PlanCard({ planId, compact = false }: { planId: number; compact?
         ))}
         {plan.steps.length > preview.length && <p className="py-1.5 text-xs text-muted">{t("more", { count: plan.steps.length - preview.length })}</p>}
       </div>
-      {plan.errors && plan.errors.length > 0 && (
+      {plan.status === "executing" && <Progress plan={plan} />}
+      <Problems plan={plan} names={names} />
+      {plan.errors && plan.errors.length > 0 && !plan.steps.some((s) => s.error) && (
         <p className="border-t px-3 py-2 text-xs text-danger">{t("failed", { count: plan.errors.length, error: plan.errors[0] })}</p>
       )}
       {plan.status === "pending" && (
@@ -111,12 +118,73 @@ export function PlanCard({ planId, compact = false }: { planId: number; compact?
   );
 }
 
+function Progress({ plan }: { plan: PlanRecord }) {
+  const { t } = useTranslation("plans");
+  const done = plan.steps.filter((s) => s.status !== "pending").length;
+  return (
+    <div className="border-t px-3 py-2" role="status">
+      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className="h-full bg-accent transition-[width] duration-150 ease-out" style={{ width: `${(done / Math.max(1, plan.steps.length)) * 100}%` }} />
+      </div>
+      <p className="mt-1 text-xs text-muted">{t("progress", { done, total: plan.steps.length })}</p>
+    </div>
+  );
+}
+
+/** Steps that hit a conflict (file changed or moved since the plan was made) or failed: skip, or apply to the file as it is now. */
+function Problems({ plan, names }: { plan: PlanRecord; names: Map<number, string> }) {
+  const { t } = useTranslation(["plans", "common"]);
+  const [busy, setBusy] = useState(false);
+  const problems = plan.steps.filter((s) => s.status === "conflicted" || s.status === "failed");
+  if (plan.status === "executing" || problems.length === 0) return null;
+  const resolve = async (seq: number, choice: "skip" | "retry") => {
+    setBusy(true);
+    try {
+      const res = await resolveConflict(plan.id, seq, choice);
+      if (res) showResult(res);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="border-t px-3 py-2">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-warning">
+        <AlertTriangle className="size-3.5" />
+        {t("problems.title", { count: problems.length })}
+      </p>
+      <ul className="divide-y">
+        {problems.slice(0, 10).map((s) => (
+          <li key={s.seq} className="py-1">
+            <StepRow step={s} names={names} />
+            <p className="pl-[4.5rem] text-xs text-danger">{s.error}</p>
+            <div className="flex gap-2 pl-[4.5rem] pt-1">
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void resolve(s.seq, "retry")}>
+                <RotateCw />
+                {s.status === "conflicted" ? t("problems.applyAnyway") : t("problems.retry")}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void resolve(s.seq, "skip")}>
+                <SkipForward />
+                {t("problems.skip")}
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {problems.length > 10 && <p className="py-1 text-xs text-muted">{t("more", { count: problems.length - 10 })}</p>}
+    </div>
+  );
+}
+
 function StatusBadge({ plan }: { plan: PlanRecord }) {
   const { t } = useTranslation(["plans", "common"]);
   const styles: Record<PlanRecord["status"], string> = {
     pending: "bg-accent-soft text-accent",
     approved: "bg-surface-2 text-muted",
+    executing: "bg-accent-soft text-accent",
     executed: "bg-success/10 text-success",
+    partially_failed: "bg-warning/10 text-warning",
     cancelled: "bg-surface-2 text-muted line-through",
   };
   return <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", styles[plan.status])}>{t(`status.${plan.status}`)}</span>;

@@ -1,8 +1,10 @@
+import { useLiveQuery } from "dexie-react-hooks";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@folderpilot/ui";
 import { restoreFiles } from "@/lib/actions/user-actions";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatDate } from "@/lib/format";
+import { db } from "@/lib/db";
 import { FileIcon } from "@/features/files/file-icon";
 import { useActiveRoot, useRootFiles } from "@/hooks/use-active-root";
 import { PlaceholderPage } from "@/pages/placeholder-page";
@@ -12,6 +14,7 @@ export function TrashPage() {
   const { t } = useTranslation("trash");
   const root = useActiveRoot();
   const trashed = (useRootFiles(root?.id) ?? []).filter((f) => f.status === "trashed");
+  const records = useLiveQuery(async () => new Map((root ? await db.trash.where("rootId").equals(root.id).toArray() : []).map((r) => [r.fileId, r])), [root?.id]);
   if (!root) return <PlaceholderPage icon={Trash2} title={t("title")} description={t("noFolder")} />;
   if (!trashed.length) return <PlaceholderPage icon={Trash2} title={t("emptyTitle")} description={t("emptyDescription")} />;
   return (
@@ -45,7 +48,8 @@ export function TrashPage() {
                     {f.name}
                   </span>
                 </td>
-                <td className="px-4 py-2 font-mono text-xs text-muted">{t("was", { path: f.trashedFrom })}</td>
+                <td className="px-4 py-2 font-mono text-xs text-muted">{t("was", { path: records?.get(f.id)?.originalPath ?? f.trashedFrom })}</td>
+                <td className="px-4 py-2 text-xs text-muted">{records?.get(f.id) ? t("keptUntil", { date: formatDate(records.get(f.id)!.purgeAfter) }) : ""}</td>
                 <td className="px-4 py-2 text-right text-xs text-muted">{formatBytes(f.size)}</td>
                 <td className="px-4 py-2 text-right">
                   <Button size="sm" variant="outline" onClick={() => void restoreFiles(root.id, [f])}>

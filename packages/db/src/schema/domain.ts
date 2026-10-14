@@ -105,6 +105,8 @@ export const files = pgTable(
     exif: jsonb("exif").$type<Record<string, string | number>>(),
     textExcerpt: text("text_excerpt"),
     category: text("category"),
+    /** Who set the category: ai | rule | user (used by explain_categorization). */
+    categorySource: text("category_source").$type<"ai" | "rule" | "user">(),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     caption: text("caption"),
     suggestedName: text("suggested_name"),
@@ -112,6 +114,8 @@ export const files = pgTable(
     confidence: real("confidence"),
     status: fileStatus("status").notNull().default("indexed"),
     flags: text("flags").array().notNull().default(sql`'{}'::text[]`),
+    /** Why a file was flagged (e.g. the agent's reason for suggested_delete). */
+    flagReason: text("flag_reason"),
     embedding: vector("embedding", { dimensions: 1024 }),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -212,6 +216,8 @@ export const planSteps = pgTable(
     after: text("after"),
     /** The file version the plan was made against; a mismatch marks the step conflicted. */
     expectVersion: text("expect_version"),
+    /** Undo plans: the audit event this step reverts. */
+    undoesEventId: uuid("undoes_event_id"),
     actor: text("actor"),
     status: stepStatus("status").notNull().default("pending"),
     error: text("error"),
@@ -232,6 +238,8 @@ export const auditEvents = pgTable(
     seq: bigserial("seq", { mode: "number" }).notNull().unique(),
     at: ts("at").notNull().defaultNow(),
     organizationId: orgId(),
+    /** No foreign key on purpose: removing a space must never have to rewrite (UPDATE) audit rows. */
+    spaceId: uuid("space_id"),
     /** user:<id> | agent:<user> | rule:<id> | mcp:<client>:<user> */
     actor: text("actor").notNull(),
     action: text("action").notNull(),
@@ -248,6 +256,7 @@ export const auditEvents = pgTable(
     index("audit_batch_idx").on(t.batchId),
     index("audit_plan_idx").on(t.planId),
     index("audit_undoes_idx").on(t.undoesEventId),
+    index("audit_space_at_idx").on(t.spaceId, t.at),
   ],
 );
 

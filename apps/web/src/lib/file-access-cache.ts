@@ -60,3 +60,8 @@ export async function getFile(file: FileRecord): Promise<File | null> {
     return null;
   }
 }
+
+/** Files of a read-only folder opened in this session (empty if it hasn't been reopened since a reload). */
+export function memoryFiles(rootId: number): Map<string, File> {
+  return memoryRoots.get(rootId) ?? new Map();
+}

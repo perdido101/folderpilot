@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { FileFlag, FileKind, FileStatus, ProposedStep, Rule, StepAction } from "@folderpilot/core";
+import type { FileFlag, FileKind, FileStatus, PlanSource, PlanStatus, PlanStep as CorePlanStep, Rule, StepAction } from "@folderpilot/core";
 
 export interface RootRecord {
   id: number;
@@ -55,35 +55,38 @@ export interface FileRecord {
 
 export type NewFileRecord = Omit<FileRecord, "id">;
 
-export type PlanSource = "agent" | "rule" | "user";
-export type PlanStatus = "pending" | "approved" | "executed" | "cancelled";
+export type { PlanSource, PlanStatus, StepStatus } from "@folderpilot/core";
 export type { StepAction } from "@folderpilot/core";
 
 /** One change in the local browser index (numeric ids). */
-export type PlanStep = ProposedStep<number>;
+export type PlanStep = Omit<CorePlanStep, "fileId" | "undoes"> & { fileId?: number; undoes?: number };
+/** A step being proposed (the engine adds seq and status). */
+export type StepInput = Omit<PlanStep, "seq" | "status">;
 
 export interface PlanRecord {
   id: number;
   rootId: number;
   source: PlanSource;
-  /** e.g. "rule:3" when source is a rule. */
+  /** user:<id> | agent:<user> | rule:<id> (older plans: "user" / "agent" / "rule") */
   actor: string;
   summary: string;
   reason?: string;
   steps: PlanStep[];
   status: PlanStatus;
   createdAt: number;
+  approvedBy?: string;
+  approvedAt?: number;
   executedAt?: number;
   batchId?: string;
+  /** Legacy (v2) field, no longer written. */
   errors?: string[];
-  /** When set, approving this plan undoes that batch (the agent's undo tool proposes these). */
-  undoBatchId?: string;
 }
 
+/** Append-only: rows are never changed. An undo is a new row whose `undoesEventId` points at the original. */
 export interface AuditRecord {
   id: number;
   at: number;
-  /** 'user' | 'agent' | 'rule:<id>' */
+  /** user:<id> | agent:<user> | rule:<id> (older rows: "user" / "agent") */
   actor: string;
   action: StepAction | "undo";
   fileIds: number[];
@@ -92,11 +95,25 @@ export interface AuditRecord {
   /** Machine values needed to undo the step. */
   from?: string;
   to?: string;
+  fromVersion?: string;
+  toVersion?: string;
   reason?: string;
   planId?: number;
   batchId: string;
-  undone: boolean;
+  undoesEventId?: number;
+  /** Legacy (v2) flag: rows undone before undo events existed. Never written anymore. */
+  undone?: boolean;
   rootId: number;
+}
+
+/** Trash bookkeeping (original location and retention). */
+export interface TrashRecord {
+  fileId: number;
+  rootId: number;
+  originalPath: string;
+  trashedBy: string;
+  trashedAt: number;
+  purgeAfter: number;
 }
 
 export interface SettingRecord {
@@ -121,6 +138,7 @@ class FolderPilotDB extends Dexie {
   audit!: EntityTable<AuditRecord, "id">;
   settings!: EntityTable<SettingRecord, "key">;
   embeddings!: EntityTable<EmbeddingRecord, "fileId">;
+  trash!: EntityTable<TrashRecord, "fileId">;
 
   constructor(name = "folderpilot") {
     super(name);
@@ -136,8 +154,33 @@ class FolderPilotDB extends Dexie {
       settings: "key",
       embeddings: "fileId, rootId",
     });
+    // v3: the shared core engine — per-step status, append-only audit with undo events, trash bookkeeping.
+    this.version(3)
+      .stores({
+        audit: "++id, at, rootId, batchId, planId, actor, undoesEventId",
+        trash: "fileId, rootId",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("plans")
+          .toCollection()
+          .modify((plan: PlanRecord & { undoBatchId?: string }) => {
+            plan.steps = plan.steps.map((s, seq) => ({ ...s, seq, status: plan.status === "executed" ? "done" : "pending" }));
+            // Old agent "undo" proposals can't be replayed by the new engine; the agent can propose them again.
+            if (plan.undoBatchId && plan.status === "pending") plan.status = "cancelled";
+            delete plan.undoBatchId;
+          });
+        const trashed = await tx.table("files").where("status").equals("trashed").toArray();
+        await tx.table("trash").bulkPut(
+          trashed
+            .filter((f: FileRecord) => f.trashedFrom)
+            .map((f: FileRecord) => ({ fileId: f.id, rootId: f.rootId, originalPath: f.trashedFrom!, trashedBy: "user", trashedAt: f.mtime, purgeAfter: Date.now() + 30 * 86_400_000 })),
+        );
+      });
   }
 }
 
 export const db = new FolderPilotDB();
 export type { FolderPilotDB };
+/** Lets tests open a database under another name (e.g. to test upgrades). */
+export { FolderPilotDB as FolderPilotDBForTests };

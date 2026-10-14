@@ -3,8 +3,9 @@
  * as "suggested for deletion". Every change it wants (move, rename, tag, caption, category,
  * rule create/update, undo) becomes a pending plan that the user must approve.
  */
-import { db, type FileRecord, type PlanStep } from "../db";
-import { createPlan, describeSteps, executePlan } from "../actions/engine";
+import { db, type FileRecord, type StepInput } from "../db";
+import { createPlan, describeSteps, executePlan, LOCAL_ACTOR, proposeUndo } from "../actions/engine";
+import { undoneIds } from "../actions/undone";
 import { sanitizeSuggestedName } from "@folderpilot/ai";
 import { matchesRule, cleanFolderPath } from "@folderpilot/core";
 import type { Condition, NewRule, Rule, RuleAction } from "@folderpilot/core";
@@ -219,7 +220,7 @@ const HANDLERS: Record<string, Handler> = {
 
   async propose_plan(input, ctx) {
     if (!Array.isArray(input.steps) || input.steps.length === 0) throw new Error("A plan needs at least one step");
-    const steps: PlanStep[] = [];
+    const steps: StepInput[] = [];
     for (const raw of input.steps as Record<string, unknown>[]) {
       const f = await fileInScope(ctx, raw.fileId);
       if (f.status === "trashed") throw new Error(`${f.name} is in the Trash`);
@@ -243,7 +244,7 @@ const HANDLERS: Record<string, Handler> = {
       }
     }
     if (steps.length === 0) return { status: "nothing_to_do", note: "Every file is already where/how the plan wants it." };
-    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: "agent", summary: text(input.summary) || describeSteps(steps), reason: text(input.reason) || undefined, steps });
+    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: LOCAL_ACTOR.agent, summary: text(input.summary) || describeSteps(steps), reason: text(input.reason) || undefined, steps });
     ctx.planIds.push(planId);
     return { planId, status: "pending_approval", changes: describeSteps(steps), note: "Shown to the user as a Plan Card. Nothing changes until they approve." };
   },
@@ -264,7 +265,7 @@ const HANDLERS: Record<string, Handler> = {
     if (!rule.conditions.length || !rule.actions.length) throw new Error("A rule needs at least one condition and one action");
     const files = await rootFiles(ctx);
     const matching = files.filter((f) => f.status !== "trashed" && matchesRule(f, { ...rule, id: -1 })).length;
-    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: "agent", summary: `Create rule “${rule.name}”`, reason: `Would match ${matching} files right now`, steps: [{ action: "rule_create", to: JSON.stringify(rule), before: "—", after: rule.name }] });
+    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: LOCAL_ACTOR.agent, summary: `Create rule “${rule.name}”`, reason: `Would match ${matching} files right now`, steps: [{ action: "rule_create", to: JSON.stringify(rule), before: "—", after: rule.name }] });
     ctx.planIds.push(planId);
     return { planId, status: "pending_approval", wouldMatchNow: matching };
   },
@@ -280,7 +281,7 @@ const HANDLERS: Record<string, Handler> = {
     if (raw.match !== undefined) changes.match = raw.match === "any" ? "any" : "all";
     if (raw.conditions !== undefined) changes.conditions = parseConditions(raw.conditions);
     if (raw.actions !== undefined) changes.actions = parseActions(raw.actions);
-    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: "agent", summary: `Update rule “${rule.name}”`, steps: [{ action: "rule_update", to: JSON.stringify({ id: rule.id, changes }), before: rule.name, after: Object.keys(changes).join(", ") || "no changes" }] });
+    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: LOCAL_ACTOR.agent, summary: `Update rule “${rule.name}”`, steps: [{ action: "rule_update", to: JSON.stringify({ id: rule.id, changes }), before: rule.name, after: Object.keys(changes).join(", ") || "no changes" }] });
     ctx.planIds.push(planId);
     return { planId, status: "pending_approval" };
   },
@@ -288,14 +289,14 @@ const HANDLERS: Record<string, Handler> = {
   async flag_for_deletion(input, ctx) {
     const ids = Array.isArray(input.fileIds) ? input.fileIds : [];
     const reason = text(input.reason) || "Suggested by the agent";
-    const steps: PlanStep[] = [];
+    const steps: StepInput[] = [];
     for (const id of ids) {
       const f = await fileInScope(ctx, id);
       if (!f.flags.includes("suggested_delete") && f.status !== "trashed") steps.push({ fileId: f.id, action: "flag", to: "suggested_delete", before: "—", after: reason });
     }
     if (!steps.length) return { flagged: 0 };
     // Flagging is metadata only (no file changes), so it applies directly — logged and undoable.
-    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: "agent", summary: `Flag ${steps.length} for deletion review`, reason, steps });
+    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: LOCAL_ACTOR.agent, summary: `Flag ${steps.length} for deletion review`, reason, steps });
     await executePlan(planId);
     ctx.fileIds.push(...steps.map((s) => s.fileId!));
     return { flagged: steps.length, note: "Flagged only. The user decides in Needs Review; nothing was deleted or trashed." };
@@ -327,25 +328,25 @@ const HANDLERS: Record<string, Handler> = {
 
   async undo(input, ctx) {
     const batchId = text(input.batchId);
-    const entries = (await db.audit.where("batchId").equals(batchId).toArray()).filter((e) => !e.undone && e.action !== "undo" && e.rootId === ctx.rootId);
-    if (!entries.length) throw new Error(`Nothing to undo in batch ${batchId}`);
-    const steps: PlanStep[] = entries.map((e) => ({ fileId: e.fileIds[0], action: e.action === "undo" ? "move" : e.action, before: e.after, after: e.before }));
-    const planId = await createPlan({ rootId: ctx.rootId, source: "agent", actor: "agent", summary: `Undo: ${describeSteps(steps)}`, steps, undoBatchId: batchId });
+    const planId = await proposeUndo(ctx.rootId, batchId);
+    if (planId === null) throw new Error(`Nothing left to undo in batch ${batchId}`);
     ctx.planIds.push(planId);
     return { planId, status: "pending_approval" };
   },
 
   async list_recent_actions(input, ctx) {
     const entries = await db.audit.where("rootId").equals(ctx.rootId).reverse().limit(400).toArray();
+    const undone = undoneIds(entries);
     const batches = new Map<string, { batchId: string; at: string; actor: string; reason?: string; changes: string[]; undone: boolean }>();
     for (const e of entries) {
+      if (e.action === "undo") continue;
       let b = batches.get(e.batchId);
       if (!b) {
         b = { batchId: e.batchId, at: new Date(e.at).toISOString(), actor: e.actor, reason: e.reason, changes: [], undone: true };
         batches.set(e.batchId, b);
       }
       if (b.changes.length < 5) b.changes.push(`${e.action}: ${e.before ?? ""} → ${e.after ?? ""}`);
-      b.undone &&= e.undone;
+      b.undone &&= undone.has(e.id);
     }
     return [...batches.values()].slice(0, Math.min(20, num(input.limit, 10)));
   },

@@ -1,21 +1,23 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, type NewFileRecord } from "../db";
-import { registerRootHandle } from "../file-access-cache";
+import { registerMemoryFiles, registerRootHandle } from "../file-access-cache";
 import { asDir, FakeDirHandle } from "@/test/fake-fs";
-import { createPlan, executePlan, runUserAction, undoBatch, undoEntry } from "./engine";
+import { createPlan, executePlan, resolveConflict, runUserAction, undoAgentSince, undoBatch, undoEntry } from "./engine";
 
 let root: FakeDirHandle;
 let rootId: number;
 
+/** Put a file on the fake disk and index it the way the indexer does (size + lastModified). */
 async function addFile(path: string, extra: Partial<NewFileRecord> = {}) {
-  await root.put(path, `content of ${path}`);
+  const handle = await root.put(path, `content of ${path}`);
+  const disk = await handle.getFile();
   const name = path.split("/").pop()!;
-  return db.files.add({ rootId, path, name, ext: name.split(".").pop()!, kind: "document", size: 10, mtime: 0, status: "indexed", flags: [], tags: [], ...extra });
+  return db.files.add({ rootId, path, name, ext: name.split(".").pop()!, kind: "document", size: disk.size, mtime: disk.lastModified, status: "indexed", flags: [], tags: [], ...extra });
 }
 
 beforeEach(async () => {
-  await Promise.all([db.files.clear(), db.roots.clear(), db.audit.clear(), db.plans.clear(), db.rules.clear()]);
+  await Promise.all([db.files.clear(), db.roots.clear(), db.audit.clear(), db.plans.clear(), db.rules.clear(), db.trash.clear()]);
   root = new FakeDirHandle("root");
   rootId = await db.roots.add({ name: "root", handle: {} as FileSystemDirectoryHandle, addedAt: 0 });
   registerRootHandle(rootId, asDir(root));
@@ -28,7 +30,7 @@ describe("action engine", () => {
     const planId = await createPlan({
       rootId,
       source: "agent",
-      actor: "agent",
+      actor: "agent:local",
       summary: "File invoices",
       steps: [
         { fileId: a, action: "move", from: "Downloads/a.pdf", to: "Invoices/a.pdf" },
@@ -45,7 +47,7 @@ describe("action engine", () => {
     const audit = await db.audit.toArray();
     expect(audit).toHaveLength(2);
     expect(new Set(audit.map((e) => e.batchId)).size).toBe(1);
-    expect(audit.every((e) => e.actor === "agent" && e.planId === planId)).toBe(true);
+    expect(audit.every((e) => e.actor === "agent:local" && e.planId === planId)).toBe(true);
     expect((await db.plans.get(planId))!.status).toBe("executed");
   });
 
@@ -67,7 +69,10 @@ describe("action engine", () => {
     expect(root.paths()).toEqual(["x/a.txt"]);
     const entries = await db.audit.toArray();
     expect(entries.filter((e) => e.action === "undo")).toHaveLength(3);
-    expect(entries.filter((e) => e.batchId === res.batchId).every((e) => e.undone)).toBe(true);
+    // Append-only: originals are untouched; each undo event points at one of them.
+    const originals = entries.filter((e) => e.batchId === res.batchId);
+    expect(originals.every((e) => e.undone === undefined)).toBe(true);
+    expect(new Set(entries.filter((e) => e.action === "undo").map((e) => e.undoesEventId))).toEqual(new Set(originals.map((e) => e.id)));
     // Undoing again is a no-op.
     expect((await undoBatch(res.batchId)).undone).toBe(0);
   });
@@ -88,6 +93,7 @@ describe("action engine", () => {
     expect(file.status).toBe("indexed");
     expect(root.paths()).toContain("Photos/blurry.jpg");
     expect(res.summary).toBe("Moved to Trash: 1 file");
+    expect(await db.trash.count()).toBe(0); // restored → no longer in the trash bookkeeping
   });
 
   it("undoes a single entry and refuses to undo a move that was superseded", async () => {
@@ -97,7 +103,7 @@ describe("action engine", () => {
     const firstEntry = (await db.audit.where("batchId").equals(first.batchId).first())!;
     const res = await undoEntry(firstEntry.id);
     expect(res.undone).toBe(0);
-    expect(res.errors[0]).toMatch(/has moved since/);
+    expect(res.errors[0]).toMatch(/changed again after this action/);
     expect((await db.files.get(a))!.path).toBe("two/a.txt");
   });
 
@@ -105,7 +111,7 @@ describe("action engine", () => {
     const planId = await createPlan({
       rootId,
       source: "agent",
-      actor: "agent",
+      actor: "agent:local",
       summary: "New rule",
       steps: [{ action: "rule_create", to: JSON.stringify({ type: "structured", name: "Screens", enabled: true, priority: 1, match: "all", conditions: [], actions: [], createdBy: "agent" }) }],
     });
@@ -127,5 +133,61 @@ describe("action engine", () => {
     await undoBatch(res.batchId);
     f = (await db.files.get(a))!;
     expect(f).toMatchObject({ category: "Misc", status: "needs_review", flags: [] });
+  });
+
+  it("marks a step conflicted when the file was edited after the plan was made, then applies it on request", async () => {
+    const a = await addFile("Inbox/report.docx");
+    const planId = await createPlan({ rootId, source: "agent", actor: "agent:local", summary: "File it", steps: [{ fileId: a, action: "move", to: "Reports/report.docx" }] });
+    await root.put("Inbox/report.docx", "edited in Word meanwhile");
+    const res = await executePlan(planId);
+    expect(res).toMatchObject({ done: 0, conflicted: 1 });
+    expect(root.paths()).toContain("Inbox/report.docx");
+    const plan = (await db.plans.get(planId))!;
+    expect(plan.status).toBe("partially_failed");
+    expect(plan.steps[0]).toMatchObject({ status: "conflicted" });
+
+    const retried = await resolveConflict(planId, 0, "retry");
+    expect(retried).toMatchObject({ done: 1 });
+    expect(root.paths()).toContain("Reports/report.docx");
+    expect(await root.read("Reports/report.docx")).toBe("edited in Word meanwhile");
+    expect((await db.plans.get(planId))!.status).toBe("executed");
+  });
+
+  it("keeps trash bookkeeping with a retention date", async () => {
+    const a = await addFile("old.txt");
+    await runUserAction(rootId, "Trash", [{ fileId: a, action: "trash" }]);
+    const t = (await db.trash.get(a))!;
+    expect(t).toMatchObject({ rootId, originalPath: "old.txt", trashedBy: "user:local" });
+    expect(t.purgeAfter - t.trashedAt).toBe(30 * 86_400_000);
+  });
+
+  it("refuses to let the agent trash, even through createPlan", async () => {
+    const a = await addFile("x.txt");
+    await expect(createPlan({ rootId, source: "agent", actor: "agent:local", summary: "x", steps: [{ fileId: a, action: "trash" }] })).rejects.toThrow(/Only a person/);
+  });
+
+  it("undoes everything the agent did since a time, but not the person's own changes", async () => {
+    const a = await addFile("a.txt");
+    const b = await addFile("b.txt");
+    await runUserAction(rootId, "mine", [{ fileId: b, action: "tag", to: "mine" }]);
+    const since = Date.now();
+    const planId = await createPlan({ rootId, source: "agent", actor: "agent:local", summary: "agent", steps: [{ fileId: a, action: "move", to: "Agent/a.txt" }] });
+    await executePlan(planId);
+    expect(await undoAgentSince(rootId, since)).toMatchObject({ undone: 1, failed: 0 });
+    expect(root.paths()).toContain("a.txt");
+    expect((await db.files.get(b))!.tags).toEqual(["mine"]);
+  });
+
+  it("refuses disk changes in read-only folders with a clear message", async () => {
+    const ro = await db.roots.add({ name: "ro", readOnly: true, addedAt: 0 });
+    registerMemoryFiles(ro, new Map([["a.txt", new File(["x"], "a.txt", { lastModified: 5 })]]));
+    const id = await db.files.add({ rootId: ro, path: "a.txt", name: "a.txt", ext: "txt", kind: "document", size: 1, mtime: 5, status: "indexed", flags: [], tags: [] });
+    const res = await runUserAction(ro, "x", [
+      { fileId: id, action: "rename", to: "b.txt" },
+      { fileId: id, action: "caption", to: "still works" },
+    ]);
+    expect(res).toMatchObject({ done: 1, failed: 1 });
+    expect(res.errors[0]).toMatch(/read-only/);
+    expect((await db.files.get(id))!.caption).toBe("still works");
   });
 });

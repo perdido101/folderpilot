@@ -12,18 +12,22 @@
     "flag": "Flag",
     "unflag": "Unflag",
     "rule_create": "New rule",
-    "rule_update": "Edit rule"
+    "rule_update": "Edit rule",
+    "undo": "Undo"
   },
   "status": {
     "pending": "pending",
     "approved": "approved",
-    "executed": "executed",
+    "executing": "running",
+    "executed": "done",
+    "partially_failed": "needs attention",
     "cancelled": "cancelled"
   },
   "actors": {
     "user": "you",
     "agent": "agent",
-    "rule": "rule"
+    "rule": "rule",
+    "mcp": "{{client}} (connected app)"
   },
   "by": "by {{actor}}",
   "more": "…and {{count}} more",
@@ -37,5 +41,13 @@
   "review": {
     "title": "Review plan",
     "description": "Check the before → after preview. Nothing touches your files until you approve."
+  },
+  "progress": "{{done}} of {{total}} done",
+  "problems": {
+    "title_one": "{{count}} change needs your decision",
+    "title_other": "{{count}} changes need your decision",
+    "applyAnyway": "Apply to the current file",
+    "retry": "Try again",
+    "skip": "Skip"
   }
 }

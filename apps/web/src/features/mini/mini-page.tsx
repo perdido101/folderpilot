@@ -4,6 +4,7 @@ import { ExternalLink, FolderOpen, Undo2 } from "lucide-react";
 import { Button } from "@folderpilot/ui";
 import { db } from "@/lib/db";
 import { undoBatch } from "@/lib/actions/engine";
+import { undoneIds } from "@/lib/actions/undone";
 import { chooseFolder } from "@/lib/folder-source";
 import { cn } from "@folderpilot/ui";
 import { AgentChat } from "@/components/layout/agent-panel";
@@ -27,12 +28,13 @@ export function MiniPage() {
   const recent = useLiveQuery(async () => {
     if (!root) return [];
     const entries = await db.audit.where("rootId").equals(root.id).reverse().limit(200).toArray();
+    const undone = undoneIds(entries);
     const batches = new Map<string, { batchId: string; reason: string; count: number; undone: boolean; at: number }>();
     for (const e of entries) {
       if (e.action === "undo") continue;
       const b = batches.get(e.batchId) ?? { batchId: e.batchId, reason: e.reason ?? e.action, count: 0, undone: true, at: e.at };
       b.count++;
-      b.undone &&= e.undone;
+      b.undone &&= undone.has(e.id);
       batches.set(e.batchId, b);
     }
     return [...batches.values()].slice(0, 3);

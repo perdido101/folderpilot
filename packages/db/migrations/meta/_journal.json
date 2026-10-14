@@ -22,6 +22,13 @@
       "when": 1791996730851,
       "tag": "0002_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792004882123,
+      "tag": "0003_engine",
+      "breakpoints": true
     }
   ]
 }

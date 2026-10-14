@@ -1,4 +1,7 @@
 /** Minimal in-memory File System Access API for unit tests. */
+let clock = 1_700_000_000_000;
+const nextModified = () => (clock += 1000);
+
 class FakeWritable {
   private chunks: BlobPart[] = [];
   constructor(private readonly target: FakeFileHandle) {}
@@ -7,18 +10,20 @@ class FakeWritable {
   }
   async close() {
     this.target.data = new Blob(this.chunks);
+    this.target.lastModified = nextModified();
   }
 }
 
 export class FakeFileHandle {
   readonly kind = "file" as const;
   parent: FakeDirHandle | null = null;
+  lastModified = nextModified();
   constructor(
     public name: string,
     public data: Blob = new Blob([]),
   ) {}
   async getFile() {
-    return new File([this.data], this.name, { lastModified: 1_700_000_000_000 });
+    return new File([this.data], this.name, { lastModified: this.lastModified });
   }
   async createWritable() {
     return new FakeWritable(this);
@@ -93,6 +98,7 @@ export class FakeDirHandle {
     const dir = await this.dirAt(parts, true);
     const file = await dir.getFileHandle(name, { create: true });
     file.data = new Blob([content]);
+    file.lastModified = nextModified();
     return file;
   }
   /** Test helper: list all file paths. */

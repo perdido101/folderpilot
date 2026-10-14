@@ -10,5 +10,12 @@
   "more": "…and {{count}} more",
   "undid_one": "Undid {{count}} change",
   "undid_other": "Undid {{count}} changes",
-  "undidWithFailures": "Undid {{undone}}; {{failed}} failed: {{error}}"
+  "undidWithFailures": "Undid {{undone}}; {{failed}} failed: {{error}}",
+  "nothingToUndo": "Nothing left to undo there.",
+  "undoAgent": {
+    "label": "Undo agent changes",
+    "hour": "From the last hour",
+    "day": "From the last 24 hours",
+    "week": "From the last 7 days"
+  }
 }

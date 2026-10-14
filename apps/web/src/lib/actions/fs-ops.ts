@@ -1,5 +1,6 @@
 /**
- * Low-level disk operations. ONLY the action engine (engine.ts) may call these —
+ * Low-level disk operations used ONLY by the local-browser StorageAdapter (lib/storage/local-browser.ts),
+ * which only the core action engine calls —
  * every disk change must be planned, logged and undoable.
  * There is deliberately no "delete file" operation: trashing is a move into .folderpilot-trash.
  */

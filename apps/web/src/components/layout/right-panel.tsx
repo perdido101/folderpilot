@@ -4,6 +4,7 @@ import { Bot, Info } from "lucide-react";
 import { cn } from "@folderpilot/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { undoneIds } from "@/lib/actions/undone";
 import { FileDetails } from "@/features/files/file-details";
 import { useSelection } from "@/stores/selection";
 import { useUI } from "@/stores/ui";
@@ -22,11 +23,12 @@ function FileHistory({ fileId, rootId }: { fileId: number; rootId: number }) {
         .toArray(),
     [fileId, rootId],
   );
+  const undone = undoneIds(entries ?? []);
   if (!entries?.length) return <p className="px-1.5 text-xs text-muted">{t("details.noHistory")}</p>;
   return (
     <ol className="space-y-1.5 px-1.5">
       {entries.map((e) => (
-        <li key={e.id} className={cn("text-xs", e.undone && "text-muted line-through")}>
+        <li key={e.id} className={cn("text-xs", undone.has(e.id) && "text-muted line-through")}>
           <span className="font-mono text-muted">{formatDate(e.at)}</span> · <span className="font-medium">{e.action}</span> · <span className="font-mono">{e.actor}</span>
           <p className="truncate font-mono text-[11px] text-muted" title={`${e.before ?? ""} → ${e.after ?? ""}`}>
             {e.before ?? "—"} → {e.after ?? "—"}

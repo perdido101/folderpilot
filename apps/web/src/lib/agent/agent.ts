@@ -18,7 +18,7 @@ export function systemPrompt(folderName: string, today: string): string {
     "- For ANY change (move, rename, tag, caption, category, rules, undo) call propose_plan / create_rule / update_rule / undo. The user sees a Plan Card and nothing changes until they approve. Never claim a change is done; say it's waiting for approval.",
     "- For 'make a rule' requests, prefer create_rule with structured conditions/actions; folder templates may use {year} {month} {category} {client} {type}.",
     "- Keep answers short. When listing files, show names (and folders when useful), not ids.",
-    "- Reply in the same language the user writes in (Greek or English).",
+    "- Always reply in English.",
   ].join("\n");
 }
 
