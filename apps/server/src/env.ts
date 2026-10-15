@@ -36,6 +36,8 @@ const schema = z.object({
   FP_AI_ANALYSIS_MODEL: z.string().default("claude-haiku-5-5"),
   FP_AI_AGENT_MODEL: z.string().default("claude-opus-5-5"),
   OLLAMA_URL: optional,
+  /** Embedding model on OLLAMA_URL for search by meaning when the org's AI can't embed (≤1024 dimensions). */
+  FP_EMBED_MODEL: optional,
   STRIPE_SECRET_KEY: optional,
   STRIPE_WEBHOOK_SECRET: optional,
   CLAMAV_HOST: optional,

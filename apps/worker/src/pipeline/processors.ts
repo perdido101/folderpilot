@@ -3,7 +3,7 @@
  *   index (scan the space) → analysis (per file, no AI) → flags (per space) → ai (per file, metered).
  * Every step is idempotent: a file whose current version was already analyzed is skipped.
  */
-import { createServerProvider, type HostedAIConfig } from "@folderpilot/ai/server";
+import { createServerProvider, type EmbeddingFallback, type HostedAIConfig } from "@folderpilot/ai/server";
 import type { AIProvider, AnalyzeContext, FileMeta } from "@folderpilot/ai";
 import { analyzeFile, computeFlags } from "@folderpilot/analysis";
 import { extOf, kindOf, matchesRule, type AIJob, type AnalysisJob, type FileFlag, type FlagsJob, type IndexJob, type StorageAdapter } from "@folderpilot/core";
@@ -15,6 +15,8 @@ export interface PipelineDeps {
   db: Database;
   encryptionKey: Buffer;
   hosted: HostedAIConfig;
+  /** Server-wide Ollama for embeddings when the org's AI can't embed (OLLAMA_URL, FP_EMBED_MODEL). */
+  embedFallback?: EmbeddingFallback;
   adapterFor(space: typeof spaces.$inferSelect): StorageAdapter;
   enqueueAnalysis(jobs: AnalysisJob[]): Promise<void>;
   enqueueFlags(job: FlagsJob): Promise<void>;

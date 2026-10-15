@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { adapterForSpace } from "@folderpilot/adapters";
-import { createServerProvider, folderPilotAI, type HostedAIConfig } from "@folderpilot/ai/server";
+import { createServerProvider, embedderFor, folderPilotAI, type HostedAIConfig } from "@folderpilot/ai/server";
 import { QUEUES } from "@folderpilot/core";
 import { createDb, parseKey } from "@folderpilot/db";
 import { createAuth } from "./auth";
@@ -10,7 +10,7 @@ import { loadEnv, type Env } from "./env";
 import { createLogger } from "./lib/logger";
 
 /** Build all runtime dependencies from the environment. `replace` swaps parts out in tests (e.g. a fake AI). */
-export function createDeps(source: Record<string, string | undefined> = process.env, overrides: Partial<Env> = {}, replace: Partial<Pick<Deps, "ai" | "adapterFor">> = {}) {
+export function createDeps(source: Record<string, string | undefined> = process.env, overrides: Partial<Env> = {}, replace: { ai?: Partial<Deps["ai"]>; adapterFor?: Deps["adapterFor"] } = {}) {
   const log = createLogger(source.LOG_LEVEL ?? "info", source.NODE_ENV !== "production" && source.NODE_ENV !== "test" && process.stdout.isTTY);
   const env = { ...loadEnv(source, (m) => log.warn(m)), ...overrides };
   const { db, close } = createDb(env.DATABASE_URL);
@@ -29,7 +29,12 @@ export function createDeps(source: Record<string, string | undefined> = process.
     log,
     encryptionKey: parseKey(env.ENCRYPTION_KEY),
     queues: { indexing },
-    ai: replace.ai ?? { hosted: () => folderPilotAI(hosted), forOrg: (s) => createServerProvider(s, hosted) },
+    ai: {
+      hosted: () => folderPilotAI(hosted),
+      forOrg: (s) => createServerProvider(s, hosted),
+      embedderFor: (s) => embedderFor(s, { ollamaUrl: env.OLLAMA_URL, model: env.FP_EMBED_MODEL }),
+      ...replace.ai,
+    },
     adapterFor: replace.adapterFor ?? ((space) => adapterForSpace(space, { devSampleDir: env.FP_DEV_SAMPLE_DIR, production: env.NODE_ENV === "production" })),
   };
   return {

@@ -22,6 +22,8 @@ const env = z
     FP_AI_AGENT_MODEL: z.string().default("claude-opus-5-5"),
     FP_DEV_SAMPLE_DIR: optional,
     FP_QUEUE_PREFIX: z.string().default("bull"),
+    OLLAMA_URL: optional,
+    FP_EMBED_MODEL: optional,
   })
   .parse(process.env);
 
@@ -40,6 +42,7 @@ const runtime = await startWorker({
     db,
     encryptionKey: env.ENCRYPTION_KEY ? parseKey(env.ENCRYPTION_KEY) : Buffer.alloc(32),
     hosted: { apiKey: env.ANTHROPIC_API_KEY, analysisModel: env.FP_AI_ANALYSIS_MODEL, agentModel: env.FP_AI_AGENT_MODEL },
+    embedFallback: { ollamaUrl: env.OLLAMA_URL, model: env.FP_EMBED_MODEL },
     adapterFor: (space) => adapterForSpace(space, { devSampleDir: env.FP_DEV_SAMPLE_DIR, production: env.NODE_ENV === "production" }),
   },
 });

@@ -56,6 +56,7 @@ export function agentRoutes(deps: Deps) {
       adapter: () => deps.adapterFor(space),
       autoRun: settings.autoRun,
       thresholds: settings.thresholds,
+      embedder: deps.ai.embedderFor(settings.ai),
     });
     const system = agentSystemPrompt({ spaceName: space.name, today: new Date().toISOString().slice(0, 10), canApprove: can(org.role, "plan", "approve"), where: "server" });
     const signal = c.req.raw.signal;

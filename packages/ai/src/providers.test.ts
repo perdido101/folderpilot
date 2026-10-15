@@ -208,3 +208,39 @@ describe("FolderPilot AI (through our API)", () => {
     expect(createProvider({ ...DEFAULT_AI_SETTINGS, provider: "anthropic", anthropic: { ...DEFAULT_AI_SETTINGS.anthropic, platform: "bedrock", apiKey: "x" } })).toBeNull();
   });
 });
+
+describe("embeddings for search", () => {
+  it("asks OpenAI-compatible servers for 1024 dimensions and retries without when unsupported", async () => {
+    let calls = 0;
+    routes.set("/embeddings", (body, res) => {
+      calls++;
+      if (body.dimensions !== undefined && calls === 1) return json(res, { error: "dimensions not supported" }, 400);
+      json(res, { data: [{ index: 1, embedding: [0, 1] }, { index: 0, embedding: [1, 0] }] });
+    });
+    const p = new OpenAICompatibleProvider({ ...DEFAULT_AI_SETTINGS.openai, baseUrl: base, apiKey: "k" });
+    expect(await p.embed!(["a", "b"])).toEqual([
+      [1, 0],
+      [0, 1],
+    ]);
+    expect(received.map((r) => r.body.dimensions)).toEqual([1024, undefined]);
+    await p.embed!(["c"]);
+    expect(received.at(-1)!.body.dimensions).toBeUndefined();
+  });
+
+  it("embedderFor: the org's AI when it can embed, else the server's Ollama, else none; vectors are padded to 1024", async () => {
+    const { embedderFor } = await import("./server");
+    routes.set("/embeddings", (_b, res) => json(res, { data: [{ index: 0, embedding: [0.5, 0.5] }] }));
+    routes.set("/api/embed", (_b, res) => json(res, { embeddings: [[0.1, 0.2, 0.3]] }));
+    const openai = embedderFor({ ...DEFAULT_AI_SETTINGS, provider: "openai", openai: { ...DEFAULT_AI_SETTINGS.openai, baseUrl: base } });
+    expect(openai!.model).toBe("openai:text-embedding-3-small");
+    const [v] = await openai!.embed(["x"]);
+    expect(v).toHaveLength(1024);
+    expect(v!.slice(0, 3)).toEqual([0.5, 0.5, 0]);
+
+    const hosted = embedderFor({ ...DEFAULT_AI_SETTINGS, provider: "folderpilot" }, { ollamaUrl: base, model: "mxbai-embed-large" });
+    expect(hosted!.model).toBe("ollama:mxbai-embed-large");
+    expect((await hosted!.embed(["x"]))[0]).toHaveLength(1024);
+    expect(embedderFor({ ...DEFAULT_AI_SETTINGS, provider: "anthropic" })).toBeNull();
+    expect(embedderFor({ ...DEFAULT_AI_SETTINGS, provider: "none" })).toBeNull();
+  });
+});

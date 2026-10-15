@@ -1,15 +1,16 @@
 import { hostname } from "node:os";
 import { Queue, UnrecoverableError, Worker, type Job, type JobsOptions } from "bullmq";
 import { Redis } from "ioredis";
-import { QUEUES, type AIJob, type AnalysisJob, type FlagsJob, type IndexJob, type RulesJob } from "@folderpilot/core";
+import { QUEUES, type AIJob, type AnalysisJob, type EmbeddingsJob, type FlagsJob, type IndexJob, type RulesJob } from "@folderpilot/core";
 import { aiOne, analyzeOne, indexSpace, PermanentJobError, recomputeSpaceFlags, type PipelineDeps } from "./pipeline/processors";
 import { rulesForSpace, rulesTick } from "./pipeline/rules";
+import { embedSpace } from "./pipeline/embeddings";
 import { systemProcessor } from "./processors";
 
 export interface WorkerRuntime {
   workerId: string;
   systemQueue: Queue;
-  queues: { indexing: Queue; analysis: Queue; ai: Queue; rules: Queue };
+  queues: { indexing: Queue; analysis: Queue; ai: Queue; rules: Queue; embeddings: Queue };
   stop(): Promise<void>;
 }
 
@@ -53,6 +54,7 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
     analysis: new Queue(QUEUES.analysis, base),
     ai: new Queue(QUEUES.ai, base),
     rules: new Queue(QUEUES.rules, base),
+    embeddings: new Queue(QUEUES.embeddings, base),
   };
   const workers: Worker[] = [new Worker(QUEUES.system, systemProcessor(workerId), { ...base, concurrency: 2 })];
 
@@ -60,6 +62,15 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
     const enqueueRules = async (data: RulesJob) => {
       // One waiting rules job per space: a burst of analyzed files triggers one run.
       await queues.rules.add("space", data, { ...RETRY, jobId: `rules_${data.spaceId}`, delay: rulesDelayMs });
+    };
+    const enqueueEmbeddings = async (data: EmbeddingsJob) => {
+      // One waiting embeddings job per space: a burst of analyzed files is embedded in batches.
+      await queues.embeddings.add("space", data, { ...RETRY, jobId: `emb_${data.spaceId}`, delay: rulesDelayMs });
+    };
+    /** A file is ready for rules and for embedding. */
+    const fileReady = async (orgId: string, spaceId: string) => {
+      await enqueueRules({ orgId, spaceId });
+      await enqueueEmbeddings({ orgId, spaceId });
     };
     const deps: PipelineDeps = {
       ...pipeline,
@@ -84,7 +95,7 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
             const data = job.data as AnalysisJob;
             const result = await analyzeOne(deps, data);
             // Without AI the file is ready for rules now; otherwise rules run after its AI insight.
-            if (!data.withAI) await enqueueRules({ orgId: data.orgId, spaceId: data.spaceId });
+            if (!data.withAI) await fileReady(data.orgId, data.spaceId);
             return result;
           } catch (err) {
             if (err instanceof PermanentJobError) throw new UnrecoverableError(err.message);
@@ -100,7 +111,7 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
             return await aiOne(deps, d);
           } finally {
             // Rules run whether the AI answered, was skipped or failed for good (budget); a retry re-queues anyway.
-            await enqueueRules({ orgId: d.orgId, spaceId: d.spaceId });
+            await fileReady(d.orgId, d.spaceId);
           }
         }),
         { ...base, concurrency: concurrency.ai ?? 2 },
@@ -108,7 +119,12 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
       // One at a time so two runs never create the same pending plan.
       new Worker<RulesJob | Record<string, never>>(
         QUEUES.rules,
-        permanent(async (d: RulesJob | Record<string, never>) => ("spaceId" in d ? rulesForSpace(deps, d as RulesJob) : rulesTick({ ...deps, enqueueRules }))),
+        permanent(async (d: RulesJob | Record<string, never>) => ("spaceId" in d ? rulesForSpace(deps, d as RulesJob) : rulesTick({ ...deps, enqueueRules, enqueueEmbeddings }))),
+        { ...base, concurrency: 1 },
+      ),
+      new Worker<EmbeddingsJob>(
+        QUEUES.embeddings,
+        permanent((d: EmbeddingsJob) => embedSpace({ ...deps, requeue: (j) => queues.embeddings.add("space", j, { ...RETRY, jobId: `emb_${j.spaceId}_${Date.now()}` }).then(() => undefined) }, d)),
         { ...base, concurrency: 1 },
       ),
     );

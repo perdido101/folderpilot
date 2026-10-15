@@ -1,3 +1,4 @@
+import { EMBEDDING_DIMS } from "@folderpilot/core";
 import { describeMeta, insightSystemPrompt } from "./prompts";
 import { parseInsight } from "./parse";
 import type { AIProvider, AnalyzeContext, ChatEvent, ChatMessage, ChatOpts, FileMeta, InsightResult, ToolCall, ToolDef, Usage } from "./types";
@@ -112,8 +113,20 @@ export class OpenAICompatibleProvider implements AIProvider {
     yield { type: "done", content, toolCalls, usage, model };
   }
 
+  /** Ask for 1024 dimensions (what FolderPilot stores); servers that don't support `dimensions` are asked again without it. */
+  private sendDimensions = true;
+
   async embed(texts: string[]) {
-    const res = await postJson<{ data: { embedding: number[]; index: number }[] }>(`${this.base}/embeddings`, { model: this.cfg.embedModel, input: texts }, this.headers());
+    const request = (withDims: boolean) =>
+      postJson<{ data: { embedding: number[]; index: number }[] }>(`${this.base}/embeddings`, { model: this.cfg.embedModel, input: texts, ...(withDims ? { dimensions: EMBEDDING_DIMS } : {}) }, this.headers());
+    let res;
+    try {
+      res = await request(this.sendDimensions);
+    } catch (err) {
+      if (!this.sendDimensions || !/^4\d\d /.test(err instanceof Error ? err.message : "")) throw err;
+      this.sendDimensions = false;
+      res = await request(false);
+    }
     return [...res.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
   }
 

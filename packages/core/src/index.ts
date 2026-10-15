@@ -8,3 +8,4 @@ export * from "./permissions";
 export * from "./storage/types";
 export * from "./engine/types";
 export * from "./engine/engine";
+export * from "./search";

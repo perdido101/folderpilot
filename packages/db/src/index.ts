@@ -9,3 +9,4 @@ export * from "./org-settings";
 export * from "./ai-service";
 export * from "./rule-runner";
 export * from "./agent/space-tools";
+export * from "./search";

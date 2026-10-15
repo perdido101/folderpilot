@@ -38,3 +38,4 @@ export { AnthropicProvider, FolderPilotProvider, OllamaProvider, OpenAICompatibl
 export type { AnthropicClientLike, AnthropicProviderOptions } from "./anthropic";
 export * from "./rules";
 export * from "./agent";
+export * from "./embeddings";

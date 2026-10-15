@@ -1,5 +1,6 @@
 import type { Queue } from "bullmq";
 import type { Redis } from "ioredis";
+import type { Embedder } from "@folderpilot/ai";
 import type { AIProvider, AISettings } from "@folderpilot/ai";
 import type { StorageAdapter } from "@folderpilot/core";
 import type { Role } from "@folderpilot/core";
@@ -23,6 +24,8 @@ export interface Deps {
     hosted(): AIProvider | null;
     /** The provider an organization configured. */
     forOrg(settings: AISettings): AIProvider | null;
+    /** Embeddings for search by meaning: the org's AI if it can embed, else the server's Ollama, else none. */
+    embedderFor(settings: AISettings): Embedder | null;
   };
   adapterFor(space: typeof spaces.$inferSelect): StorageAdapter;
 }

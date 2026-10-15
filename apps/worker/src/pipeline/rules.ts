@@ -5,7 +5,7 @@
  * - schedule: a tick every 15 minutes runs rules whose schedule is due over their whole scope.
  * Auto rules execute (audited as rule:<id>, undoable); suggest rules become plans waiting for approval.
  */
-import { isRuleDue, type RulesJob } from "@folderpilot/core";
+import { isRuleDue, type EmbeddingsJob, type RulesJob } from "@folderpilot/core";
 import { activeStructuredRules, files, filesNeedingRules, rules, runRulesOnFiles, scoped, spaces, toRule, type RuleRunOutcome } from "@folderpilot/db";
 import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { orgProvider, PermanentJobError, type PipelineDeps } from "./processors";
@@ -34,7 +34,10 @@ export async function rulesForSpace(deps: Pick<PipelineDeps, "db" | "encryptionK
  * The schedule tick: every enabled scheduled rule that is due runs over its whole scope (all files, not only new ones),
  * then records last_run_at. Also queues a rules job for spaces with unchecked files (a safety net for missed triggers).
  */
-export async function rulesTick(deps: Pick<PipelineDeps, "db" | "encryptionKey" | "hosted" | "adapterFor"> & { enqueueRules(job: RulesJob): Promise<void> }, now = Date.now()) {
+export async function rulesTick(
+  deps: Pick<PipelineDeps, "db" | "encryptionKey" | "hosted" | "adapterFor"> & { enqueueRules(job: RulesJob): Promise<void>; enqueueEmbeddings?(job: EmbeddingsJob): Promise<void> },
+  now = Date.now(),
+) {
   const { db } = deps;
   // The worker is a trusted system process: it looks across organizations, then scopes every query per org.
   const scheduled = (await db.select().from(rules).where(and(eq(rules.type, "structured"), eq(rules.enabled, true), isNull(rules.archivedAt), ne(rules.schedule, "none")))).filter((r) => isRuleDue(toRule(r), now));
@@ -61,5 +64,16 @@ export async function rulesTick(deps: Pick<PipelineDeps, "db" | "encryptionKey" 
     .from(files)
     .where(sql`${files.status} <> 'trashed' and ${files.analyzedAt} is not null and (${files.rulesCheckedAt} is null or ${files.rulesCheckedAt} < greatest(${files.analyzedAt}, coalesce(${files.aiAnalyzedAt}, ${files.analyzedAt})))`);
   for (const u of unchecked) await deps.enqueueRules({ orgId: u.orgId, spaceId: u.spaceId });
-  return { scheduled: ran, queued: unchecked.length };
+
+  // Safety net for search by meaning: spaces with analyzed files that have no vector yet (the job skips orgs without a model).
+  let embeddings = 0;
+  if (deps.enqueueEmbeddings) {
+    const missing = await db
+      .selectDistinct({ orgId: files.organizationId, spaceId: files.spaceId })
+      .from(files)
+      .where(sql`${files.status} <> 'trashed' and ${files.analyzedAt} is not null and ${files.embedding} is null`);
+    for (const m of missing) await deps.enqueueEmbeddings({ orgId: m.orgId, spaceId: m.spaceId });
+    embeddings = missing.length;
+  }
+  return { scheduled: ran, queued: unchecked.length, embeddings };
 }

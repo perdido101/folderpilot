@@ -3,7 +3,8 @@
  * Every query is scoped to the organization and the space; every change is a plan through the engine (pending unless
  * the organization's auto-run setting allows a small agent plan). There is no delete, trash or approve tool.
  */
-import { and, asc, count, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, sql, type SQL } from "drizzle-orm";
+import type { Embedder } from "@folderpilot/ai";
 import { asFilter, asInt, asText, type AgentToolRunner, type FileFilter, type StatGroup, type ToolOutcome, STAT_GROUPS, PLAN_ACTIONS } from "@folderpilot/ai";
 import {
   can,
@@ -11,15 +12,12 @@ import {
   createEngine,
   dryRun,
   EngineError,
-  extsOfKind,
-  KNOWN_EXTS,
   kindOf,
   matchesRule,
   ruleProblem,
   sanitizeSuggestedName,
   type AutoRunSettings,
   type Condition,
-  type FileKind,
   type NewRule,
   type ProposedStep,
   type Role,
@@ -31,6 +29,7 @@ import {
 import type { Database } from "../client";
 import { createPgEngineStore, toEngineFile, toRule } from "../engine-store";
 import { activeStructuredRules } from "../rule-runner";
+import { fileFilterSql, searchFiles } from "../search";
 import { scoped } from "../scoped";
 import { files, plans, planSteps, rules, spaces } from "../schema";
 
@@ -45,6 +44,8 @@ export interface SpaceAgentContext {
   adapter: () => StorageAdapter;
   autoRun: AutoRunSettings;
   thresholds: Thresholds;
+  /** For search by meaning (null = words only). */
+  embedder?: Embedder | null;
   /** Audit actor; the FolderPilot chat uses agent:<userId>, MCP uses mcp:<client>:<userId>. */
   actor?: string;
   source?: "agent" | "mcp";
@@ -53,10 +54,8 @@ export interface SpaceAgentContext {
 export class AgentToolError extends Error {}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const like = (s: string) => `%${s.replace(/[%_\\]/g, "\\$&")}%`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const folderOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
-const STOPWORDS = new Set(["the", "a", "an", "of", "for", "and", "or", "in", "on", "to", "from", "with", "my", "our", "all", "files", "file", "find", "show", "me", "please"]);
 
 /** What the model sees of a file (no provider internals, no full text). */
 function compact(f: FileRow) {
@@ -75,22 +74,7 @@ function compact(f: FileRow) {
   };
 }
 
-function filterSql(f: FileFilter): SQL[] {
-  const out: SQL[] = [];
-  out.push(f.status ? sql`${files.status} = ${f.status}` : sql`${files.status} <> 'trashed'`);
-  if (f.folder) out.push(sql`(${files.path} ilike ${`${f.folder.replace(/[%_\\]/g, "\\$&")}/%`})`);
-  if (f.category) out.push(ilike(files.category, f.category));
-  if (f.ext) out.push(eq(files.ext, f.ext));
-  if (f.flag) out.push(sql`${f.flag} = any(${files.flags})`);
-  if (f.client) out.push(sql`(${files.entities}->>'client') ilike ${like(f.client)}`);
-  if (f.kind) {
-    const exts = extsOfKind(f.kind as FileKind);
-    out.push(exts.length ? inArray(files.ext, [...exts]) : sql`not (${files.ext} = any(${KNOWN_EXTS as string[]}))`);
-  }
-  if (f.modifiedAfter && !Number.isNaN(Date.parse(f.modifiedAfter))) out.push(sql`${files.mtime} >= ${new Date(f.modifiedAfter)}`);
-  if (f.modifiedBefore && !Number.isNaN(Date.parse(f.modifiedBefore))) out.push(sql`${files.mtime} < ${new Date(f.modifiedBefore)}`);
-  return out;
-}
+const filterSql = (f: FileFilter): SQL[] => fileFilterSql(f);
 
 const STAT_EXPR: Record<Exclude<StatGroup, "kind" | "flag">, SQL> = {
   category: sql`coalesce(${files.category}, 'uncategorized')`,
@@ -137,21 +121,16 @@ export function createSpaceTools(ctx: SpaceAgentContext): AgentToolRunner {
   const handlers: Record<string, (input: Record<string, unknown>) => Promise<ToolOutcome>> = {
     async search_files(input) {
       need(can(ctx.role, "file", "view"), "view files");
-      const query = asText(input.query).toLowerCase();
-      const terms = query
-        .split(/[^\p{L}\p{N}._-]+/u)
-        .filter((t) => t.length > 1 && !STOPWORDS.has(t))
-        .slice(0, 8);
-      const haystack = sql`concat_ws(' ', ${files.name}, ${files.path}, ${files.caption}, ${files.category}, array_to_string(${files.tags}, ' '), ${files.textExcerpt}, ${files.entities}::text, to_char(${files.mtime}, 'YYYY'))`;
-      const conds = [...filterSql(asFilter(input.filters)), ...terms.map((t) => sql`${haystack} ilike ${like(t)}`)];
-      const limit = asInt(input.limit, 20, 100);
-      const nameHit = terms[0] ? sql`(${files.name} ilike ${like(terms[0])})` : sql`false`;
-      const rows = await db.select().from(files).where(inSpace(...conds)).orderBy(desc(nameHit), desc(files.mtime)).limit(limit);
-      const [total] = await db.select({ n: count() }).from(files).where(inSpace(...conds));
+      const filter = asFilter(input.filters);
+      const res = await searchFiles(db, orgId, { q: asText(input.query), filters: { ...filter, spaceIds: [space.id] }, limit: asInt(input.limit, 20, 100), embedder: ctx.embedder ?? null });
       return {
-        result: { total: total?.n ?? 0, files: rows.map((f) => ({ ...compact(f), caption: f.caption ?? undefined })) },
-        summary: `Found ${plural(total?.n ?? 0, "file")}`,
-        fileIds: rows.slice(0, 30).map((f) => f.id),
+        result: {
+          total: res.total,
+          searchedBy: res.semantic === "on" ? "words and meaning" : "words",
+          files: res.hits.map((h) => ({ ...compact(h.file), caption: h.file.caption ?? undefined, matchedBy: h.sources.join("+") || undefined })),
+        },
+        summary: `Found ${plural(res.total, "file")}`,
+        fileIds: res.hits.slice(0, 30).map((h) => h.file.id),
       };
     },
 

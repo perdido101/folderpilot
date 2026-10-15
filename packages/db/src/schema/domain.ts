@@ -7,6 +7,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -22,6 +23,9 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AutoRunSettings, Condition, RuleAction, RuleSchedule } from "@folderpilot/core";
 import { organizations, users } from "./auth";
+
+/** Postgres tsvector (read-only from the app: a trigger maintains it). */
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const orgId = () =>
@@ -125,6 +129,12 @@ export const files = pgTable(
     /** Why a file was flagged (e.g. the agent's reason for suggested_delete). */
     flagReason: text("flag_reason"),
     embedding: vector("embedding", { dimensions: 1024 }),
+    /** Which model made `embedding` (only vectors from the same model are compared). */
+    embeddingModel: text("embedding_model"),
+    /** Hash of the embedded text: unchanged text is never embedded twice. */
+    embeddingHash: text("embedding_hash"),
+    /** Full-text search document, maintained by the files_search_tsv trigger (migration 0007). */
+    searchTsv: tsvector("search_tsv"),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
@@ -137,6 +147,8 @@ export const files = pgTable(
     index("files_org_category_idx").on(t.organizationId, t.category),
     index("files_tags_gin").using("gin", t.tags),
     index("files_flags_gin").using("gin", t.flags),
+    index("files_search_tsv_gin").using("gin", t.searchTsv),
+    index("files_embedding_hnsw").using("hnsw", t.embedding.op("vector_cosine_ops")),
   ],
 );
 

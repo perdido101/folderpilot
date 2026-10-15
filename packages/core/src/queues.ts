@@ -45,3 +45,9 @@ export interface RulesJob {
   orgId: string;
   spaceId: string;
 }
+
+/** Embed new/changed files of a space for search by meaning (deduplicated per space). */
+export interface EmbeddingsJob {
+  orgId: string;
+  spaceId: string;
+}

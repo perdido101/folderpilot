@@ -11,6 +11,7 @@ import { OllamaProvider } from "./ollama";
 import { OpenAICompatibleProvider } from "./openai";
 import type { AISettings } from "./config";
 import type { AIProvider } from "./types";
+import { embedderOf, type Embedder } from "./embeddings";
 
 export interface HostedAIConfig {
   /** Our ANTHROPIC_API_KEY; FolderPilot AI is unavailable without it. */
@@ -104,4 +105,28 @@ export function createServerProvider(ai: AISettings, hosted: HostedAIConfig): AI
     default:
       return null;
   }
+}
+
+/** Server-wide fallback for embeddings (spec §5): an Ollama the server can reach (OLLAMA_URL + FP_EMBED_MODEL). */
+export interface EmbeddingFallback {
+  ollamaUrl?: string | undefined;
+  model?: string | undefined;
+}
+
+/**
+ * Which embedder an organization's search uses, in order: its own AI when that can embed (OpenAI-compatible, Ollama);
+ * else the server's Ollama; else none (search by words only). FolderPilot AI and Claude/Bedrock/Vertex can't embed.
+ */
+export function embedderFor(ai: AISettings, fallback: EmbeddingFallback = {}): Embedder | null {
+  if (ai.provider === "openai" && ai.openai.baseUrl && ai.openai.embedModel) {
+    return embedderOf(new OpenAICompatibleProvider(ai.openai), `openai:${ai.openai.embedModel}`);
+  }
+  if (ai.provider === "ollama" && ai.ollama.embedModel) {
+    return embedderOf(new OllamaProvider(ai.ollama), `ollama:${ai.ollama.embedModel}`);
+  }
+  if (fallback.ollamaUrl) {
+    const model = fallback.model || "nomic-embed-text";
+    return embedderOf(new OllamaProvider({ baseUrl: fallback.ollamaUrl, visionModel: "", textModel: "", embedModel: model }), `ollama:${model}`);
+  }
+  return null;
 }
