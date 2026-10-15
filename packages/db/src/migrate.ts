@@ -13,8 +13,8 @@ export async function runMigrations(url: string): Promise<void> {
   }
 }
 
-// `pnpm db:migrate`
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// `pnpm db:migrate` (only when this file itself is run, not when it's bundled into an app).
+if (process.argv[1] && /migrate\.[cm]?[jt]s$/.test(process.argv[1]) && fileURLToPath(import.meta.url) === process.argv[1]) {
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error("DATABASE_URL is not set (see .env.example).");

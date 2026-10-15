@@ -7,6 +7,15 @@ Nothing changes on disk until you approve a plan, every change is logged and und
 
 See `CLAUDE.md` for the product spec and `PROGRESS.md` for status.
 
+## Try it online
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/perdido101/folderpilot)
+
+One click creates the app, a Postgres database and Redis on Render (free plan available). Then follow
+`docs/DEPLOY.md` to sign up and connect your Google Drive.
+
+## Run it locally
+
 ```bash
 pnpm install
 pnpm setup:env      # create .env with fresh secrets

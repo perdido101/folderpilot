@@ -43,7 +43,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {
-      command: "pnpm --filter @folderpilot/e2e prepare-db && pnpm --filter @folderpilot/server exec tsx src/seed.ts && pnpm --filter @folderpilot/server exec tsx src/index.ts",
+      // E2E_USE_DIST=1 runs the production bundles (`pnpm build`) instead of the TypeScript sources.
+      command: `pnpm --filter @folderpilot/e2e prepare-db && pnpm --filter @folderpilot/server exec tsx src/seed.ts && ${process.env.E2E_USE_DIST ? "node apps/server/dist/index.js" : "pnpm --filter @folderpilot/server exec tsx src/index.ts"}`,
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 120_000,

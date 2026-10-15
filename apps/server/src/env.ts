@@ -49,6 +49,8 @@ const schema = z.object({
   MCP_PUBLIC_URL: optional,
   /** Development only: a folder on this machine shown as the read-only "Sample files (dev)" space. */
   FP_DEV_SAMPLE_DIR: optional,
+  /** Serve the built web app from this server (single-service deployments), e.g. apps/web/dist. */
+  FP_WEB_DIST: optional,
   /** BullMQ key prefix; server and worker must match (tests use their own). */
   FP_QUEUE_PREFIX: z.string().default("bull"),
 });
@@ -61,6 +63,9 @@ export type Env = z.infer<typeof schema> & { BETTER_AUTH_SECRET: string; ENCRYPT
  * In development, missing secrets get random per-process values (sessions reset on restart).
  */
 export function loadEnv(source: Record<string, string | undefined> = process.env, warn: (msg: string) => void = console.warn): Env {
+  // On Render (and similar hosts) the public URL is known at runtime: one origin serves both the app and the API.
+  const hosted = source.RENDER_EXTERNAL_URL;
+  if (hosted) source = { ...source, APP_URL: source.APP_URL || hosted, API_URL: source.API_URL || hosted };
   const parsed = schema.safeParse(source);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");

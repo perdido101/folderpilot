@@ -105,7 +105,9 @@ await google.start(Number(process.env.MOCK_GOOGLE_PORT ?? 3198));
 
 server.listen(port, "127.0.0.1", () => console.log(`mock AI on ${port}, mock Google on ${google.base}`));
 
-const worker = spawn("pnpm", ["--filter", "@folderpilot/worker", "exec", "tsx", "src/index.ts"], { cwd: "..", stdio: "inherit", env: process.env });
+const worker = process.env.E2E_USE_DIST
+  ? spawn(process.execPath, ["apps/worker/dist/index.js"], { cwd: "..", stdio: "inherit", env: process.env })
+  : spawn("pnpm", ["--filter", "@folderpilot/worker", "exec", "tsx", "src/index.ts"], { cwd: "..", stdio: "inherit", env: process.env });
 const stop = () => {
   worker.kill("SIGTERM");
   server.close();

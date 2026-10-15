@@ -15,6 +15,7 @@ import { ruleRoutes } from "./routes/rules";
 import { agentRoutes } from "./routes/agent";
 import { searchRoutes } from "./routes/search";
 import { connectRoutes } from "./routes/connect";
+import { mountWebApp } from "./web-app";
 import { spaceFileRoutes } from "./routes/space-files";
 import { systemRoutes } from "./routes/system";
 
@@ -29,7 +30,7 @@ export function createApp(deps: Deps) {
     log.info({ requestId: c.get("requestId"), method: c.req.method, path: c.req.path, status: c.res.status, ms: Math.round(performance.now() - start) }, "request");
   });
   app.use(
-    "*",
+    "/api/*",
     secureHeaders({
       contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
       crossOriginResourcePolicy: "same-site",
@@ -54,6 +55,8 @@ export function createApp(deps: Deps) {
   app.route("/api/orgs", agentRoutes(deps));
   app.route("/api/orgs", searchRoutes(deps));
   app.route("/api", connectRoutes(deps));
+  // Single-service deployments: the web app from the same origin (its own CSP, see web-app.ts).
+  if (env.FP_WEB_DIST) mountWebApp(app, env.FP_WEB_DIST);
 
   app.notFound((c) => c.json({ error: "not_found", message: "Not found." }, 404));
   app.onError((err, c) => {

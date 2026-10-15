@@ -15,6 +15,32 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 8 | Connect mode: **Google Drive ✅ done** (brought forward at your request) · OneDrive/SharePoint, Dropbox | ⏭ next: OneDrive, Dropbox |
 | 9–14 | see `CLAUDE.md` §20 | — |
 
+## Online deployment — ready (one click on Render)
+
+- **One container** (`Dockerfile`): `scripts/start.mjs` applies migrations, then runs the API and the worker.
+  - The API also serves the built web app from the same address (`FP_WEB_DIST`), so there's no CORS and sign-in
+    cookies are first-party.
+  - The web app gets its own strict security policy: its own scripts plus the hashed inline theme script, blob
+    previews and workers, and no framing.
+  - If one process dies, the whole service restarts.
+  - `FP_ROLE=server|worker` splits it into separate services later.
+- **`render.yaml`** + a **Deploy to Render** button in the README. It creates the service (EU/Frankfurt),
+  Postgres 16 and Key Value (`noeviction`), generates `BETTER_AUTH_SECRET`/`ENCRYPTION_KEY`, and asks for the
+  Google/Anthropic keys (optional).
+  - `APP_URL`/`API_URL` come from `RENDER_EXTERNAL_URL` automatically.
+- **Guide:** `docs/DEPLOY.md` (Render step by step, Google redirect URIs for your online address, free-plan limits,
+  any other Docker host).
+- **Fixes found by running production for the first time:**
+  - the production bundles crashed (`require` inside bundled CommonJS) — they now have a `require` shim;
+  - the migration file ran itself inside the worker bundle;
+  - production now uses the bundles: about 330 MB for the API and worker together, so it fits a 512 MB plan.
+- **Verified:**
+  - all 14 E2E tests pass against the production bundles (`E2E_USE_DIST=1`);
+  - production mode in a real browser: sign up → organization → Google Drive enabled, no CSP errors;
+  - the web-app serving has unit tests (SPA fallback, `/api` untouched, CSP hash, no path escape).
+  - The Docker image itself couldn't be built here: this sandbox's proxy blocks downloads inside `docker build`.
+    Render builds it.
+
 ## Google Drive (Connect mode, phase 8 part 1) — done
 
 Brought forward so you can try FolderPilot on your own Drive. Approved plans really move, rename and trash files in
@@ -369,7 +395,8 @@ e2e/            Playwright smoke tests
    `pnpm dev`, then **New → Connect a source → Google Drive**.
 5. Optional: Microsoft sign-in keys → `docs/SETUP.md` §3. Everything else (Drive, OneDrive, Dropbox, S3, Anthropic,
    Stripe, ClamAV) is documented there with the phase that starts using it; all of it stays hidden until configured.
-6. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
+6. **Online:** README → **Deploy to Render**, then `docs/DEPLOY.md` (add your Render address to the Google OAuth client).
+7. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
 
 ## Known issues / notes
 
