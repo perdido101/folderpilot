@@ -1,68 +1,97 @@
+/**
+ * The agent as a stream of events, for whatever is open:
+ * - a folder on this device: the shared loop runs here, tools run on the browser index;
+ * - a server space: the server runs the loop and its tools, and streams the same events (SSE).
+ */
+import { agentSystemPrompt, runAgent, summarizeToolInput, type AgentEvent, type ChatMessage } from "@folderpilot/ai";
+import i18n from "@/i18n";
 import { db } from "../db";
-import { collectChat, type ChatMessage } from "@folderpilot/ai";
 import { browserProvider } from "../ai/provider";
 import { keywordSearch } from "../search";
-import i18n from "@/i18n";
 import { getSettings } from "../settings";
-import { runTool, TOOL_DEFS, type ToolContext } from "./tools";
+import { ApiError } from "../api";
+import { createDeviceTools } from "./device-tools";
 
-const MAX_STEPS = 8;
+export type { AgentEvent };
 
-export function systemPrompt(folderName: string, today: string): string {
-  return [
-    "You are FolderPilot, an assistant that helps a small office organize, find and clean files on their own computer.",
-    `You work inside the folder “${folderName}”. Only ever act on files in this folder. Today is ${today}.`,
-    "Rules you must follow:",
-    "- Answer questions directly. Use search_files / list_files / get_overview to look things up; never invent files.",
-    "- You cannot delete files and there is no delete tool. If files look useless, use flag_for_deletion; a human decides.",
-    "- For ANY change (move, rename, tag, caption, category, rules, undo) call propose_plan / create_rule / update_rule / undo. The user sees a Plan Card and nothing changes until they approve. Never claim a change is done; say it's waiting for approval.",
-    "- For 'make a rule' requests, prefer create_rule with structured conditions/actions; folder templates may use {year} {month} {category} {client} {type}.",
-    "- Keep answers short. When listing files, show names (and folders when useful), not ids.",
-    "- Always reply in English.",
-  ].join("\n");
-}
-
-export interface AgentTurn {
-  messages: ChatMessage[];
-  reply: string;
-  planIds: number[];
-  fileIds: number[];
-}
-
-/** One user turn: loop model → tools → model until it answers (max 8 tool rounds). */
-export async function runAgentTurn(rootId: number, history: ChatMessage[], userText: string): Promise<AgentTurn> {
+/** Folder on this device. Without an AI it still finds files by keyword. */
+export async function* deviceAgent(rootId: number, history: ChatMessage[], userText: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
   const settings = await getSettings();
   const provider = browserProvider(settings.ai);
   const root = await db.roots.get(rootId);
-  const ctx: ToolContext = { rootId, planIds: [], fileIds: [] };
-  const messages: ChatMessage[] = [...history, { role: "user", content: userText }];
 
   if (!provider) {
-    // No AI connected: still useful for finding files with keyword search.
-    const files = await db.files.where("rootId").equals(rootId).toArray();
-    const hits = keywordSearch(files, userText).slice(0, 12);
-    ctx.fileIds.push(...hits.map((h) => h.file.id));
+    const hits = keywordSearch(await db.files.where("rootId").equals(rootId).toArray(), userText).slice(0, 12);
     const reply = hits.length
       ? hits.length === 12
         ? i18n.t("agent:replies.offlineTopMatches")
         : i18n.t("agent:replies.offlineFound", { count: hits.length })
       : i18n.t("agent:replies.offlineNone");
-    return { messages: [...messages, { role: "assistant", content: reply }], reply, planIds: [], fileIds: ctx.fileIds };
+    if (hits.length) yield { type: "files", fileIds: hits.map((h) => String(h.file.id)) };
+    yield { type: "text", text: reply };
+    yield { type: "done", reply, history: [...history, { role: "user", content: userText }, { role: "assistant", content: reply }], usage: { inputTokens: 0, outputTokens: 0 }, model: "" };
+    return;
   }
 
-  const system = systemPrompt(root?.name ?? "this folder", new Date().toISOString().slice(0, 10));
-  for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await collectChat(provider.chat(system, messages, TOOL_DEFS));
-    messages.push({ role: "assistant", content: res.content, toolCalls: res.toolCalls, raw: res.raw });
-    if (res.toolCalls.length === 0) {
-      return { messages, reply: res.content, planIds: ctx.planIds, fileIds: [...new Set(ctx.fileIds)] };
-    }
-    for (const call of res.toolCalls) {
-      const out = await runTool(call.name, call.input, ctx);
-      messages.push({ role: "tool", toolCallId: call.id, name: call.name, content: out.content, isError: out.isError });
+  yield* runAgent({
+    provider,
+    system: agentSystemPrompt({ spaceName: root?.name ?? "this folder", today: new Date().toISOString().slice(0, 10), canApprove: true, where: "device" }),
+    tools: createDeviceTools(rootId, { provider }),
+    history,
+    userText,
+    ...(signal ? { signal } : {}),
+    onToolCall: async (call) => {
+      await db.agentLog.add({ at: Date.now(), rootId, tool: call.name, input: summarizeToolInput(call.input ?? {}), ok: call.ok, ...(call.error ? { error: call.error } : {}), durationMs: Math.round(call.ms) } as never);
+    },
+  });
+}
+
+/** Parse a `text/event-stream` body into its `data:` payloads. */
+export async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const chunk = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const data = chunk
+        .split("\n")
+        .filter((l) => l.startsWith("data:"))
+        .map((l) => l.slice(5).replace(/^ /, ""))
+        .join("\n");
+      if (data) yield data;
     }
   }
-  const reply = ctx.planIds.length ? i18n.t("agent:replies.planReady") : i18n.t("agent:replies.stopped");
-  messages.push({ role: "assistant", content: reply });
-  return { messages, reply, planIds: ctx.planIds, fileIds: [...new Set(ctx.fileIds)] };
+}
+
+/** Server space: the server runs the agent with its tools; we render its events. */
+export async function* serverAgent(orgId: string, spaceId: string, history: ChatMessage[], userText: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
+  let res: Response;
+  try {
+    res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/orgs/${orgId}/spaces/${spaceId}/agent`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: userText, history }),
+      ...(signal ? { signal } : {}),
+    });
+  } catch (err) {
+    yield { type: "error", message: signal?.aborted ? "Stopped." : err instanceof Error ? err.message : String(err) };
+    return;
+  }
+  if (!res.ok || !res.body) {
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    yield { type: "error", message: new ApiError(res.status, body?.message ?? res.statusText).message };
+    return;
+  }
+  try {
+    for await (const data of sseData(res.body)) yield JSON.parse(data) as AgentEvent;
+  } catch (err) {
+    yield { type: "error", message: signal?.aborted ? "Stopped." : err instanceof Error ? err.message : String(err) };
+  }
 }

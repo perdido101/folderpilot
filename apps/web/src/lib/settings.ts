@@ -10,12 +10,15 @@ export interface AppSettings {
   ai: AISettings;
   thresholds: Thresholds;
   autoAnalyzeWithAI: boolean;
+  /** Agent plans touching at most this many files run without approval (0 = always ask). Never trash or rules. */
+  agentAutoRunMaxFiles: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   ai: DEFAULT_AI_SETTINGS,
   thresholds: DEFAULT_THRESHOLDS,
   autoAnalyzeWithAI: false,
+  agentAutoRunMaxFiles: 0,
 };
 
 const KEY = "app";
@@ -26,6 +29,7 @@ function merge(stored: Partial<AppSettings> | undefined): AppSettings {
     ai: withDefaults(s.ai),
     thresholds: { ...DEFAULT_SETTINGS.thresholds, ...s.thresholds },
     autoAnalyzeWithAI: s.autoAnalyzeWithAI ?? DEFAULT_SETTINGS.autoAnalyzeWithAI,
+    agentAutoRunMaxFiles: s.agentAutoRunMaxFiles ?? DEFAULT_SETTINGS.agentAutoRunMaxFiles,
   };
 }
 

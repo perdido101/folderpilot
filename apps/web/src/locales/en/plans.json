@@ -49,5 +49,6 @@
     "applyAnyway": "Apply to the current file",
     "retry": "Try again",
     "skip": "Skip"
-  }
+  },
+  "waitingForApprover": "Waiting for someone who can approve (an editor or admin)."
 }

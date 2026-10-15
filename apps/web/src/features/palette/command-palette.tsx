@@ -11,6 +11,7 @@ import { useVisibleNav } from "@/components/layout/sidebar";
 import { FileIcon } from "@/features/files/file-icon";
 import { useActiveRoot, useRootFiles } from "@/hooks/use-active-root";
 import { useChat } from "@/stores/chat";
+import { useChatScope } from "@/components/layout/agent-panel";
 import { useIndexing } from "@/stores/indexing";
 import { useSelection } from "@/stores/selection";
 import { toast } from "@/stores/toasts";
@@ -34,6 +35,7 @@ export function CommandPalette() {
   const files = useRootFiles(root?.id);
   const connectFolder = useIndexing((s) => s.connectFolder);
   const send = useChat((s) => s.send);
+  const chatScope = useChatScope().scope;
   const openQuickLook = useSelection((s) => s.openQuickLook);
   const [query, setQuery] = useState("");
   const { t } = useTranslation(["palette", "shell"]);
@@ -153,7 +155,7 @@ export function CommandPalette() {
                 {t("items.systemTheme")}
               </Command.Item>
             </Command.Group>
-            {query.trim() && root && (
+            {query.trim() && chatScope && (
               <Command.Group heading={t("groups.agent")} className={groupCls} forceMount>
                 <Command.Item
                   forceMount
@@ -161,7 +163,7 @@ export function CommandPalette() {
                   className={itemCls}
                   onSelect={run(() => {
                     if (!agentPanelOpen) toggleAgentPanel();
-                    return send(root.id, query);
+                    return send(chatScope, query);
                   })}
                 >
                   <Bot />

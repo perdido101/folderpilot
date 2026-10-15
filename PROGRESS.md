@@ -9,8 +9,47 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 2 | Core engine: StorageAdapter, plan engine, audit, undo, trash/restore, conflict checks; `local-browser` adapter | ✅ done |
 | 3 | Analysis + AI: analysis package (browser + worker), BullMQ jobs, four AI providers, insight pipeline, Needs Review, Duplicates & Bad Files | ✅ done |
 | 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ✅ done |
-| 5 | Agent: tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode | ⏭ next |
-| 6–14 | see `CLAUDE.md` §20 | — |
+| 5 | Agent: tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode | ✅ done |
+| 6 | Search: full-text + pgvector hybrid, filters, search UI | ⏭ next |
+| 7–14 | see `CLAUDE.md` §20 | — |
+
+## Phase 5 — done
+
+- **One agent, two runtimes.** `packages/ai/src/agent` holds the shared pieces:
+  - the 11 spec tools: search_files, list_files, get_file, explain_categorization, propose_plan, propose_rule,
+    update_rule_proposal, flag_for_deletion, propose_undo, get_audit(filter), stats(question);
+  - **no delete, trash or approve tool** (asking for one gets "there is no delete tool");
+  - the English-only system prompt (it tells the model whether the person can approve);
+  - a streaming loop: text as it is written, a progress event per tool call, Plan Cards and file chips; at most
+    8 rounds, a time budget, and tool results capped before they go back to the model.
+  - **This device:** the loop runs in the browser with tools over the local index (`lib/agent/device-tools.ts`).
+    Without an AI it still answers with a keyword search.
+  - **Server spaces:** the loop runs on the server (`POST /api/orgs/:id/spaces/:spaceId/agent`, SSE) with tools over
+    Postgres (`packages/db/src/agent/space-tools.ts`, ready for the phase 10 MCP server). Every query is scoped to the
+    organization and the space, and every tool checks the person's role (viewers may look things up and propose
+    plans but not rules; approving still needs an editor or admin). It uses the organization's AI and records usage.
+    With no AI connected it says so.
+- **Every change is a plan.** Agent plans are `source: agent`, actor `agent:<userId>` (`agent:local` on this
+  device), and wait in Pending Approvals and in the chat.
+  - `flag_for_deletion` is now a plan too: it only flags files for review; nothing is ever trashed.
+  - Rule proposals are always Suggest, and the agent can't switch a rule to Auto.
+  - `update_rule_proposal` revises a pending proposal (the old one is withdrawn) or proposes edits to an existing rule.
+  - `propose_undo` undoes a batch, or everything the agent did since a time.
+- **Auto-run for small plans (spec §2), off by default.** Admins can set "Agent auto-run limit (files)" in Settings →
+  AI for your organization; on this device it's "Let the agent apply small plans by itself". Rule changes, trash
+  and restore always need a person. Engine: `autoApproveSmall()`.
+- **Every tool call is logged.** On the server, `agent_tool_calls` (migration 0006) records tool, short input summary
+  (no file contents), ok/error and duration; on this device, the Dexie table `agentLog` (v4). Shown in a new
+  **Audit Log → Agent activity** tab (admins see everyone's calls, others their own).
+- **UI.**
+  - The chat streams; each tool call shows as a line (spinner, then ✓ with "Found 3 files").
+  - **Stop** button; "New conversation".
+  - One conversation per folder or space, kept for the browser tab.
+  - Plan Cards in the chat: device plans as before; server plans load by id with Approve (with Undo) / Edit (untick) /
+    Cancel, or "Waiting for someone who can approve".
+  - Works in the right panel, in **mini mode** (server spaces too, with last actions + Undo) and from the **command
+    palette** ("Ask the agent: …").
+  - `GET /api/orgs/:id/plans/:planId` (one plan) and an `ids` filter on the space files list support the chat.
 
 ## Phase 4 — done
 
@@ -167,26 +206,42 @@ e2e/            Playwright smoke tests
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
-## Verified (after phase 4)
+## Verified (after phase 5)
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
-- `pnpm test` — 218 unit tests: core 90 (adds regex/client/docType/space conditions, `{docType}`, scope/archive,
-  `rulesForFiles`, `isRuleDue`, `ruleProblem`, `autoApprove` refusals), web 52 (adds the device rule runner: auto
-  applies + undo, suggest waits, no duplicates, scope/paused/archived, schedules), ai 32 (adds `proposeStructuredRule`:
-  valid, unknown fields stripped, invalid ops / unsafe regex / delete action / non-JSON refused, AI's own refusal),
-  analysis 27, adapters 4, server 11, worker 2.
-- `pnpm test:integration` (real Postgres + Redis) — db 16, server 29 (adds rules CRUD audited + undo, validation,
-  auto needs admin / editors may pause / viewers read-only / other orgs 404, dry-run, run: auto executes as the rule
-  and suggest waits with no duplicates, approve / keep steps / cancel, run on one folder, "Make this a rule?" hint,
-  convert with and without AI), worker 8 (adds: after a scan an auto rule tags and a suggest rule makes exactly one
-  pending plan; a changed file doesn't duplicate it; a weekly rule runs once per interval and records `last_run_at`;
-  the tick re-queues unchecked spaces).
-- `pnpm test:e2e` (Playwright, Chromium, real worker + mock AI) — 9 tests, adding **server space: create an Auto rule
-  (txt → tag) and a Suggest rule (jpg → category) with live dry-run → Run all → Pending Approvals → Approve → files
-  show the category → Audit Log shows the rule as actor → Undo**, and **this device: an Auto rule moves new files on
-  disk after the folder is analyzed**.
-- `pnpm dev` with migration 0005 — web :5173, API :3000 (health ok), worker started; rules API answers on the dev
-  sample space (dry-run over 537 files).
+- `pnpm test` — 235 unit tests:
+  - ai 39 (adds the agent loop: streaming, tool rounds, plans/files events, unknown and "delete" tools refused, round
+    limit, capped results, Stop; exactly the spec tools; English prompt);
+  - core 91 (adds `autoApproveSmall`: threshold, never rule changes or trash, MCP only when allowed);
+  - web 61 (adds device tools: folder scoping, pending agent plans, flag-as-plan with auto-run under the limit only,
+    Suggest-only rules and revisions, audit filter + undo proposal, stats; the tool-call log; the chat store:
+    streamed text, tool chips, plans, files, errors, attachments, per-tab persistence);
+  - analysis 27, adapters 4, server 11, worker 2.
+- `pnpm test:integration` (real Postgres + Redis) — server 35 (adds the agent route with a scripted AI:
+  - SSE event order;
+  - a pending plan with actor `agent:<user>` that only changes after approval;
+  - the plan card by id;
+  - audit actor;
+  - tool-call log;
+  - usage;
+  - space scoping;
+  - delete refused;
+  - viewer limits;
+  - rule propose/revise (Suggest only);
+  - stats by category/flag/year;
+  - audit filter;
+  - undo proposal;
+  - flag plan pending vs. auto-run under the org limit;
+  - activity visibility;
+  - other orgs 404;
+  - no AI → 409),
+
+  plus db 16 and worker 8.
+- `pnpm test:e2e` (Playwright, real worker + mock AI that can stream tool calls) — 11 tests, adding:
+  - **server space:** "tag the invoice as paid" → streamed reply with tool lines → Plan Card → Approve → Audit Log
+    shows `agent:` → Undo → Agent activity lists the tool calls → mini mode shows the conversation;
+  - **this device:** ask from the command palette → Plan Card → Cancel.
+- `pnpm dev` with migration 0006 — web :5173, API :3000 (health ok), worker started, agent activity endpoint answers.
 
 ## What you need to configure
 
@@ -206,13 +261,20 @@ e2e/            Playwright smoke tests
 - Trash is never purged automatically yet (that would permanently remove files); auto-purge after retention comes with admin settings (phase 11).
 - The browser can't watch folders: changes made outside FolderPilot are picked up by Rescan, and show up as conflicts if a plan touches them.
 - Plans made before this update that were waiting as agent "undo" proposals were cancelled by the upgrade; ask the agent again.
-- Server spaces: the agent panel, Categories, Recent and Trash views still work on folders on this device only (they
+- Server spaces: Categories, Recent and Trash views still work on folders on this device only (they
   say which phase brings server spaces). The dev sample space is read-only until phase 9, so Auto rules that move or
   rename fail there with a "read-only" reason (tags, captions, categories and review flags work).
 - Rules on server spaces run on a space when its files change, plus a 15-minute schedule tick; if files change while
   a rules run is already going, they're picked up by the next run or the tick (at most ~15 minutes later).
 - On this device, scheduled rules only run while the app is open (browsers can't run in the background).
-- The agent's own rule proposals stay Suggest-only; agent tools for proposing rules from chat come with phase 5.
+- The agent's rule proposals are always Suggest; only a person (an admin on servers) can make a rule Auto.
+- The agent's server search is a simple all-words match over name, path, caption, tags, category, text and entities
+  until phase 6 brings hybrid full-text + semantic search. On this device it uses semantic search when you've built
+  the semantic index.
+- Conversations live in the browser tab (sessionStorage); they aren't saved on the server or shared across devices.
+- File chips in server-space answers show names only (quick look for server files comes with Cloud mode previews).
+- Real model quality isn't measured here: the agent is tested with scripted mock AIs (no Anthropic key in this
+  environment).
 - Progress for server jobs is polled every 1.5 s while work is running (SSE comes with phase 5 streaming).
 - AI for server spaces is tested against mocks here (no Anthropic/Bedrock/Vertex credentials in this environment).
 - Embeddings (search by meaning) for server spaces arrive in phase 6; per-space AI override in phase 9.

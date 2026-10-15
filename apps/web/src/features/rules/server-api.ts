@@ -138,6 +138,15 @@ export function useServerPlans(orgId: string, spaceId: string) {
   });
 }
 
+export function useServerPlan(orgId: string, spaceId: string, planId: string) {
+  return useQuery({
+    queryKey: ["space", spaceId, "plan", planId],
+    queryFn: () => api<{ plan: ServerPlan }>(`/api/orgs/${orgId}/plans/${planId}`),
+    // Auto-run plans finish within a moment of being proposed.
+    refetchInterval: (q) => (q.state.data?.plan.status === "executing" || q.state.data?.plan.status === "approved" ? 1000 : false),
+  });
+}
+
 export function useServerPlanActions(orgId: string, spaceId: string) {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["space", spaceId] });

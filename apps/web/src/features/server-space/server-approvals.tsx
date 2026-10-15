@@ -7,7 +7,7 @@ import { Button, cn, Dialog, DialogContent, DialogDescription, DialogTitle } fro
 import { ApiError } from "@/lib/api";
 import { PlaceholderPage } from "@/pages/placeholder-page";
 import { toast } from "@/stores/toasts";
-import { useServerPlanActions, useServerPlans, type ServerPlan } from "@/features/rules/server-api";
+import { useServerPlan, useServerPlanActions, useServerPlans, type ServerPlan } from "@/features/rules/server-api";
 import { useActorLabel } from "@/features/plans/plan-card";
 import { useUndoBatch } from "./api";
 import type { ActiveServerSpace } from "./space-header";
@@ -35,7 +35,8 @@ function StepLine({ step }: { step: ServerPlan["steps"][number] }) {
   );
 }
 
-function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServerSpace }) {
+/** A plan on a server space: summary, files, before → after and, while pending, Approve / Edit / Cancel. */
+export function ServerPlanCard({ plan, space, compact = false }: { plan: ServerPlan; space: ActiveServerSpace; compact?: boolean }) {
   const { t } = useTranslation(["plans", "common", "spaces"]);
   const actions = useServerPlanActions(space.orgId, space.id);
   const undo = useUndoBatch(space.orgId, space.id);
@@ -43,7 +44,8 @@ function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServer
   const [editing, setEditing] = useState(false);
   const actorLabel = useActorLabel();
   const canApprove = can(space.role, "plan", "approve");
-  const preview = plan.steps.slice(0, 5);
+  const preview = plan.steps.slice(0, compact ? 3 : 5);
+  const pending = plan.status === "pending";
 
   const approve = async () => {
     setBusy(true);
@@ -71,7 +73,7 @@ function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServer
   };
 
   return (
-    <div className="rounded-lg border border-accent/40 bg-surface" data-testid="server-plan">
+    <div className={cn("rounded-lg border bg-surface", pending && "border-accent/40")} data-testid="server-plan">
       <div className="flex items-start gap-2 border-b px-3 py-2">
         <ListChecks className="mt-0.5 size-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
@@ -80,7 +82,9 @@ function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServer
             {t("common:file", { count: plan.fileCount })} · {t("by", { actor: actorLabel(plan.actor) })}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">{t("status.pending")}</span>
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", pending ? "bg-accent-soft text-accent" : plan.status === "executed" ? "bg-success/10 text-success" : "bg-surface-2 text-muted")}>
+          {t(`status.${plan.status}`, { defaultValue: plan.status })}
+        </span>
       </div>
       <div className="divide-y px-3">
         {preview.map((s) => (
@@ -88,7 +92,8 @@ function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServer
         ))}
         {plan.steps.length > preview.length && <p className="py-1.5 text-xs text-muted">{t("more", { count: plan.steps.length - preview.length })}</p>}
       </div>
-      {canApprove && (
+      {pending && !canApprove && <p className="border-t px-3 py-2 text-xs text-muted">{t("plans:waitingForApprover")}</p>}
+      {pending && canApprove && (
         <div className="flex gap-2 border-t p-2">
           <Button size="sm" disabled={busy || plan.steps.length === 0} onClick={() => void approve()}>
             <Check />
@@ -107,6 +112,12 @@ function ServerPlanCard({ plan, space }: { plan: ServerPlan; space: ActiveServer
       {editing && <EditSteps plan={plan} onClose={() => setEditing(false)} onSave={(seqs) => actions.keepSteps(plan.id, seqs)} />}
     </div>
   );
+}
+
+/** A plan loaded by id (Plan Cards in the agent chat). */
+export function ServerPlanById({ planId, space, compact }: { planId: string; space: ActiveServerSpace; compact?: boolean }) {
+  const plan = useServerPlan(space.orgId, space.id, planId).data?.plan;
+  return plan ? <ServerPlanCard plan={plan} space={space} {...(compact !== undefined ? { compact } : {})} /> : null;
 }
 
 /** Untick steps you don't want, then save (the plan stays pending). */

@@ -134,6 +134,18 @@ export interface EmbeddingRecord {
   vector: number[];
 }
 
+/** One agent tool call (spec §9: every tool call is logged). Input is a short summary, never file contents. */
+export interface AgentLogRecord {
+  id: number;
+  at: number;
+  rootId: number;
+  tool: string;
+  input: string;
+  ok: boolean;
+  error?: string;
+  durationMs: number;
+}
+
 class FolderPilotDB extends Dexie {
   roots!: EntityTable<RootRecord, "id">;
   files!: EntityTable<FileRecord, "id">;
@@ -143,6 +155,7 @@ class FolderPilotDB extends Dexie {
   settings!: EntityTable<SettingRecord, "key">;
   embeddings!: EntityTable<EmbeddingRecord, "fileId">;
   trash!: EntityTable<TrashRecord, "fileId">;
+  agentLog!: EntityTable<AgentLogRecord, "id">;
 
   constructor(name = "folderpilot") {
     super(name);
@@ -181,6 +194,8 @@ class FolderPilotDB extends Dexie {
             .map((f: FileRecord) => ({ fileId: f.id, rootId: f.rootId, originalPath: f.trashedFrom!, trashedBy: "user", trashedAt: f.mtime, purgeAfter: Date.now() + 30 * 86_400_000 })),
         );
       });
+    // v4: the agent's tool-call log.
+    this.version(4).stores({ agentLog: "++id, at, rootId" });
   }
 }
 

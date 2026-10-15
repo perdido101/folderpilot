@@ -12,12 +12,81 @@ import { useFolderDrop } from "@/features/intake/use-folder-drop";
 import { useActiveRoot } from "@/hooks/use-active-root";
 import { useIndexing } from "@/stores/indexing";
 import { toast } from "@/stores/toasts";
+import { useActiveServerSpace, useSpaceAudit, useUndoBatch } from "@/features/server-space/api";
+import type { ActiveServerSpace } from "@/features/server-space/space-header";
 
 /**
  * Mini mode (~400×520): drop zone, prompt box, plan cards, last actions with Undo, "Open full app".
  * Standalone route with no app shell, so it can become the Tauri tray popup later.
  */
+/** Last changes in a server space, with Undo. */
+function ServerRecent({ space }: { space: ActiveServerSpace }) {
+  const { t } = useTranslation(["mini", "spaces"]);
+  const events = useSpaceAudit(space.orgId, space.id).data?.events ?? [];
+  const undo = useUndoBatch(space.orgId, space.id);
+  const batches = new Map<string, { batchId: string; reason: string; count: number; undone: boolean }>();
+  for (const e of events) {
+    if (e.action === "undo" || !e.batchId) continue;
+    const b = batches.get(e.batchId) ?? { batchId: e.batchId, reason: e.reason ?? e.action, count: 0, undone: true };
+    b.count++;
+    b.undone &&= e.undoneBy !== null;
+    batches.set(e.batchId, b);
+  }
+  const recent = [...batches.values()].slice(0, 3);
+  if (!recent.length) return null;
+  return (
+    <footer className="shrink-0 space-y-1 border-t p-2">
+      <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted">{t("lastActions")}</p>
+      {recent.map((b) => (
+        <div key={b.batchId} className="flex items-center gap-2 px-1 text-xs">
+          <span className={cn("min-w-0 flex-1 truncate", b.undone && "text-muted line-through")}>
+            {b.reason} · {b.count}
+          </span>
+          {!b.undone && (
+            <button
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+              onClick={async () => {
+                try {
+                  const r = await undo.mutateAsync(b.batchId);
+                  toast(t("spaces:results.undone", { count: r.done }));
+                } catch (err) {
+                  toast(err instanceof Error ? err.message : String(err), "error");
+                }
+              }}
+            >
+              <Undo2 className="size-3" /> {t("spaces:results.undo")}
+            </button>
+          )}
+        </div>
+      ))}
+    </footer>
+  );
+}
+
 export function MiniPage() {
+  const space = useActiveServerSpace();
+  if (space) return <ServerMini space={space} />;
+  return <DeviceMini />;
+}
+
+function ServerMini({ space }: { space: ActiveServerSpace }) {
+  const { t } = useTranslation(["mini", "common"]);
+  return (
+    <div className="flex h-full flex-col bg-surface">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="size-5" />
+        <span className="truncate text-sm font-semibold">{space.name}</span>
+        <a href={import.meta.env.BASE_URL} target="folderpilot-main" className="ml-auto inline-flex items-center gap-1 text-xs text-accent hover:underline">
+          {t("openFullApp")} <ExternalLink className="size-3" />
+        </a>
+      </header>
+      <AgentChat compact />
+      <ServerRecent space={space} />
+    </div>
+  );
+}
+
+function DeviceMini() {
   const root = useActiveRoot();
   const { t } = useTranslation(["mini", "common"]);
   const { status, progress, connectFolder } = useIndexing();

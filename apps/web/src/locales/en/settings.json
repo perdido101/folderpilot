@@ -29,7 +29,9 @@
         "text": "Our hosted Claude. Only small thumbnails or extracted text are sent, counted against your organization's monthly AI budget."
       }
     },
-    "autoAnalyze": "Analyze new files with AI automatically after indexing"
+    "autoAnalyze": "Analyze new files with AI automatically after indexing",
+    "autoRun": "Let the agent apply small plans by itself, up to this many files:",
+    "autoRunHint": "0 = always ask (default). Moving to the Trash and rule changes always need you."
   },
   "fields": {
     "ollamaUrl": "Ollama URL",
@@ -114,7 +116,9 @@
       "projectId": "Project ID",
       "serviceAccountJson": "Service account JSON",
       "budget": "Monthly AI budget (files)",
-      "budgetHint": "AI analysis stops for the month when this many files have been described. Cached results don't count."
+      "budgetHint": "AI analysis stops for the month when this many files have been described. Cached results don't count.",
+      "autoRun": "Agent auto-run limit (files)",
+      "autoRunHint": "Agent plans touching at most this many files apply without approval (still logged and undoable). 0 = always ask. Trash and rule changes always need a person."
     },
     "bedrockHint": "Leave the keys empty to use the server's AWS credentials (environment or instance role).",
     "vertexHint": "Leave the JSON empty to use the server's Google credentials (application default).",

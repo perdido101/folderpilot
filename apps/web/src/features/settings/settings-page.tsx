@@ -225,6 +225,19 @@ export function SettingsPage() {
             />
             {t("provider.autoAnalyze")}
           </label>
+          <label className="flex flex-wrap items-center gap-2 text-sm">
+            {t("provider.autoRun")}
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              aria-label={t("provider.autoRun")}
+              className="h-8 w-20 rounded-lg border bg-surface px-2 text-sm"
+              value={settings.agentAutoRunMaxFiles}
+              onChange={(e) => void saveSettings((s) => ({ ...s, agentAutoRunMaxFiles: Math.min(1000, Math.max(0, Number(e.target.value) || 0)) }))}
+            />
+            <span className="text-xs text-muted">{t("provider.autoRunHint")}</span>
+          </label>
         </Section>
 
         <Section title={t("semantic.title")} description={t("semantic.description")}>

@@ -52,6 +52,12 @@ const ListQuery = z.object({
   q: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(200),
   offset: z.coerce.number().int().min(0).default(0),
+  /** Comma-separated file ids (e.g. the files an agent answer mentions). Includes trashed files. */
+  ids: z
+    .string()
+    .max(40 * 100)
+    .optional()
+    .transform((v) => (v ? v.split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 100) : undefined)),
 });
 
 const ReviewBody = z.discriminatedUnion("action", [
@@ -80,9 +86,10 @@ export function spaceFileRoutes(deps: Deps) {
     const space = await spaceOr404(orgId, c.req.param("spaceId"));
     const q = ListQuery.safeParse(c.req.query());
     if (!q.success) throw new HTTPException(400, { message: q.error.issues[0]?.message ?? "Invalid query." });
-    const { status, flag, category, q: text, limit, offset } = q.data;
+    const { status, flag, category, q: text, limit, offset, ids } = q.data;
     const conds: SQL[] = [eq(files.spaceId, space.id)];
-    conds.push(status ? eq(files.status, status) : sql`${files.status} <> 'trashed'`);
+    if (ids) conds.push(ids.length ? inArray(files.id, ids) : sql`false`);
+    else conds.push(status ? eq(files.status, status) : sql`${files.status} <> 'trashed'`);
     if (flag) conds.push(sql`${flag} = any(${files.flags})`);
     if (category) conds.push(eq(files.category, category));
     if (text) conds.push(or(ilike(files.name, `%${text.replace(/[%_\\]/g, "\\$&")}%`), ilike(files.path, `%${text.replace(/[%_\\]/g, "\\$&")}%`)) as SQL);

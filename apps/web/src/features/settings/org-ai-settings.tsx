@@ -210,6 +210,18 @@ export function OrgAISettings() {
         </div>
       </div>
 
+      <Field label={t("org.fields.autoRun")} hint={t("org.fields.autoRunHint")}>
+        <Input
+          type="number"
+          min={0}
+          max={1000}
+          className="w-40"
+          aria-label={t("org.fields.autoRun")}
+          value={form.autoRun?.maxFiles ?? 0}
+          onChange={(e) => setForm({ ...form, autoRun: { allowMcp: form.autoRun?.allowMcp ?? false, maxFiles: Math.min(1000, Math.max(0, Number(e.target.value) || 0)) } })}
+        />
+      </Field>
+
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={saving}>
           {saving && <Loader2 className="animate-spin" />}

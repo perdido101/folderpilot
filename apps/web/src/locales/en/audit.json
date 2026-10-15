@@ -17,5 +17,19 @@
     "hour": "From the last hour",
     "day": "From the last 24 hours",
     "week": "From the last 7 days"
+  },
+  "tabs": {
+    "changes": "Changes",
+    "agent": "Agent activity"
+  },
+  "activity": {
+    "description": "Every tool the agent used, for whom and with what input (file contents are never stored here). Changes it proposed appear under Changes once approved.",
+    "empty": "The agent hasn't used any tools here yet.",
+    "when": "When",
+    "tool": "Tool",
+    "input": "Input",
+    "result": "Result",
+    "ok": "ok · {{ms}} ms",
+    "failed": "failed"
   }
 }

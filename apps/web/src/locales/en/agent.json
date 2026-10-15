@@ -14,7 +14,8 @@
   "empty": {
     "title": "Ask in plain language",
     "hint": "Every change is shown as a plan you approve first. The agent can't delete files.",
-    "noAI": "No AI connected — keyword search only. Connect one in Settings."
+    "noAI": "No AI connected — keyword search only. Connect one in Settings.",
+    "noOrgAI": "No AI is connected for this organization yet. An admin can connect one in Settings → AI."
   },
   "thinking": "Thinking…",
   "dropFiles": "Drop files to ask about them",
@@ -22,7 +23,8 @@
     "placeholder": "Ask FolderPilot…",
     "placeholderNoFolder": "Open a folder first",
     "label": "Message the agent",
-    "send": "Send"
+    "send": "Send",
+    "stop": "Stop"
   },
   "newConversation": "New conversation",
   "removeAttachment": "Remove {{name}}",
@@ -33,5 +35,21 @@
     "offlineNone": "No AI is connected yet (Settings → AI). I can still search by keyword, but nothing matched that.",
     "planReady": "I've prepared a plan for you to review.",
     "stopped": "I stopped after several steps. Could you narrow the request?"
+  },
+  "tools": {
+    "label": "What the agent did",
+    "names": {
+      "search_files": "Searched files",
+      "list_files": "Listed files",
+      "get_file": "Read file details",
+      "explain_categorization": "Explained a category",
+      "propose_plan": "Proposed changes",
+      "propose_rule": "Proposed a rule",
+      "update_rule_proposal": "Revised a rule",
+      "flag_for_deletion": "Suggested files for deletion",
+      "propose_undo": "Proposed an undo",
+      "get_audit": "Read the audit log",
+      "stats": "Counted files"
+    }
   }
 }

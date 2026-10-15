@@ -13,6 +13,7 @@ import { CreateOrgPage } from "@/features/auth/create-org-page";
 import { SignInPage } from "@/features/auth/sign-in-page";
 import { SignUpPage } from "@/features/auth/sign-up-page";
 import { AuditPage } from "@/features/audit/audit-page";
+import { AuditTabs } from "@/features/audit/agent-activity";
 import { CategoriesPage } from "@/features/categories/categories-page";
 import { DuplicatesPage } from "@/features/cleanup/duplicates-page";
 import { FilesPage } from "@/features/files/files-page";
@@ -58,7 +59,7 @@ const router = createBrowserRouter(
         { path: "duplicates", element: <SpaceRoute device={<DuplicatesPage />} server={(s) => <ServerDuplicates space={s} />} /> },
         { path: "rules", element: <RulesPage /> },
         { path: "approvals", element: <SpaceRoute device={<ApprovalsPage />} server={(space) => <ServerApprovals space={space} />} /> },
-        { path: "audit", element: <SpaceRoute device={<AuditPage />} server={(s) => <ServerAudit space={s} />} /> },
+        { path: "audit", element: <AuditTabs><SpaceRoute device={<AuditPage />} server={(s) => <ServerAudit space={s} />} /></AuditTabs> },
         { path: "shared", element: <SharedPage /> },
         { path: "trash", element: <SpaceRoute device={<TrashPage />} phase={7} /> },
         { path: "settings", element: <SettingsPage /> },

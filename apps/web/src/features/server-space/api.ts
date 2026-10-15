@@ -87,6 +87,7 @@ export interface OrgAISettings {
     ai: AISettings;
     thresholds: { nearDuplicateDistance: number; blur: number; dark: number; tiny: number; confidence: number };
     aiMonthlyFileBudget: number;
+    autoRun?: { maxFiles: number; allowMcp: boolean };
     secretsSet: Record<string, boolean>;
   };
   usage: { files: number; inputTokens: number; outputTokens: number; since: string };
