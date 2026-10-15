@@ -19,6 +19,7 @@ import { FileIcon } from "@/features/files/file-icon";
 import { useActiveRoot, useRootFiles } from "@/hooks/use-active-root";
 import { useActiveOrg, useServerSpaces } from "@/hooks/use-me";
 import { useActiveServerSpace, type SpaceFile } from "@/features/server-space/api";
+import { ServerQuickLook } from "@/features/server-space/server-quick-look";
 import { useMode } from "@/stores/mode";
 import { useSelection } from "@/stores/selection";
 import { useUI } from "@/stores/ui";
@@ -201,7 +202,11 @@ function DeviceResults({ q, filter, limit, onChip, set, onMore }: ResultsProps) 
       const model = await deviceEmbedModel();
       const r = q.trim()
         ? await hybridSearch(root.id, scoped, q, { provider: browserProvider(settings.ai), ...(model ? { model } : {}) })
-        : { hits: [...scoped].sort((a, b) => b.mtime - a.mtime).map((file) => ({ file, score: 0, sources: [] })), parsed: { terms: [], chips: [] }, semantic: "unavailable" as const };
+        : {
+            hits: [...scoped].sort((a, b) => b.mtime - a.mtime).map((file) => ({ file, score: 0, sources: [] })),
+            parsed: { terms: [], chips: [] },
+            semantic: "unavailable" as const,
+          };
       if (live) setRes(r);
     })();
     return () => {
@@ -230,7 +235,20 @@ function DeviceResults({ q, filter, limit, onChip, set, onMore }: ResultsProps) 
     kind: countBy(hits, (h) => h.file.kind),
     client: countBy(hits, (h) => h.file.client),
   };
-  return <ResultsView chips={res.parsed.chips} total={hits.length} semantic={res.semantic} results={results} facets={facets} filter={filter} set={set} onChip={onChip} onMore={onMore} hasMore={hits.length > limit} />;
+  return (
+    <ResultsView
+      chips={res.parsed.chips}
+      total={hits.length}
+      semantic={res.semantic}
+      results={results}
+      facets={facets}
+      filter={filter}
+      set={set}
+      onChip={onChip}
+      onMore={onMore}
+      hasMore={hits.length > limit}
+    />
+  );
 }
 
 interface ApiResult {
@@ -247,7 +265,17 @@ function ServerResults({ orgId, q, filter, limit, onChip, set, onMore }: Results
   const spaces = useServerSpaces(orgId).data ?? [];
   const { from, to } = dateRange(filter.date);
   const qs = new URLSearchParams({ q, limit: String(limit), facets: "1" });
-  for (const [k, v] of Object.entries({ kind: filter.kind, category: filter.category, flag: filter.flag, client: filter.client, spaceId: filter.space, from: from ?? "", to: to ?? "" })) if (v) qs.set(k, v);
+  for (const [k, v] of Object.entries({
+    kind: filter.kind,
+    category: filter.category,
+    flag: filter.flag,
+    client: filter.client,
+    spaceId: filter.space,
+    from: from ?? "",
+    to: to ?? "",
+  }))
+    if (v) qs.set(k, v);
+  const [looking, setLooking] = useState<{ file: SpaceFile; spaceName: string } | null>(null);
   const query = useQuery({
     queryKey: ["search", orgId, qs.toString()],
     queryFn: () => api<{ results: ApiResult[]; total: number; semantic: string; chips: QueryChip[]; facets: Facets }>(`/api/orgs/${orgId}/search?${qs}`),
@@ -266,32 +294,46 @@ function ServerResults({ orgId, q, filter, limit, onChip, set, onMore }: Results
     snippet: r.snippet ?? r.file.caption,
     matchedBy: r.matchedBy,
     mtime: r.file.mtime,
-    open: () => {
-      setActiveServerSpaceId(r.file.spaceId);
-      navigate(`/?q=${encodeURIComponent(r.file.name)}`);
-    },
+    open: () => setLooking({ file: r.file, spaceName: r.spaceName }),
   }));
   return (
-    <ResultsView
-      chips={data.chips}
-      total={data.total}
-      semantic={data.semantic}
-      results={results}
-      facets={{ ...data.facets, space: data.facets.space?.length ? data.facets.space : spaces.map((s) => ({ key: s.id, name: s.name, count: 0 })) }}
-      filter={filter}
-      set={set}
-      onChip={onChip}
-      onMore={onMore}
-      hasMore={data.total > results.length}
-      loading={query.isFetching}
-      emptyHint={t("emptyServer")}
-    />
+    <>
+      <ServerQuickLook
+        orgId={orgId}
+        file={looking?.file ?? null}
+        spaceName={looking?.spaceName}
+        onClose={() => setLooking(null)}
+        onShowInSpace={(f) => {
+          setActiveServerSpaceId(f.spaceId);
+          navigate(`/?q=${encodeURIComponent(f.name)}`);
+        }}
+      />
+      <ResultsView
+        chips={data.chips}
+        total={data.total}
+        semantic={data.semantic}
+        results={results}
+        facets={{ ...data.facets, space: data.facets.space?.length ? data.facets.space : spaces.map((s) => ({ key: s.id, name: s.name, count: 0 })) }}
+        filter={filter}
+        set={set}
+        onChip={onChip}
+        onMore={onMore}
+        hasMore={data.total > results.length}
+        loading={query.isFetching}
+        emptyHint={t("emptyServer")}
+      />
+    </>
   );
 }
 
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: ReactNode }) {
   return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={cn("h-8 rounded-lg border bg-surface px-2 text-xs", value && "border-accent text-accent")}>
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn("h-8 rounded-lg border bg-surface px-2 text-xs", value && "border-accent text-accent")}
+    >
       {children}
     </select>
   );
@@ -411,7 +453,10 @@ function ResultsView({
                     <span className="truncate">{r.name}</span>
                     {r.category && <span className="rounded-full bg-surface-2 px-1.5 py-px text-[11px] font-normal text-muted">{r.category}</span>}
                     {r.matchedBy.includes("meaning") && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-normal text-accent" title={t("byMeaningHint")}>
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-normal text-accent"
+                        title={t("byMeaningHint")}
+                      >
                         <Sparkles className="size-3" /> {t("byMeaning")}
                       </span>
                     )}

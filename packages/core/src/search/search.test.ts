@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cosine, embedText, EmbeddingSizeError, hashText, norm, parseQuery, removeChip, rrf, toDims } from "./index";
+import { cosine, embedText, EmbeddingSizeError, hashText, norm, parseQuery, removeChip, rrf, termVariants, toDims } from "./index";
 
 const now = new Date("2026-10-15T12:00:00Z");
 
@@ -57,5 +57,16 @@ describe("ranking", () => {
     expect(embedText(f).length).toBeLessThan(700);
     expect(hashText(embedText(f))).toBe(hashText(embedText({ ...f })));
     expect(hashText(embedText(f))).not.toBe(hashText(embedText({ ...f, caption: "new" })));
+  });
+});
+
+describe("termVariants", () => {
+  it("folds simple English plurals and keeps the original first", () => {
+    expect(termVariants("invoices")).toEqual(["invoices", "invoice"]);
+    expect(termVariants("companies")).toEqual(["companies", "company"]);
+    expect(termVariants("boxes")).toEqual(["boxes", "box"]);
+    expect(termVariants("glass")).toEqual(["glass"]);
+    expect(termVariants("bus")).toEqual(["bus"]);
+    expect(termVariants("alpha")).toEqual(["alpha"]);
   });
 });

@@ -5,7 +5,7 @@
  */
 import { and, desc, eq, gte, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { Embedder } from "@folderpilot/ai";
-import { extsOfKind, kindOf, KNOWN_EXTS, parseQuery, rrf, type FileKind, type ParsedQuery } from "@folderpilot/core";
+import { extsOfKind, kindOf, KNOWN_EXTS, parseQuery, rrf, termVariants, type FileKind, type ParsedQuery } from "@folderpilot/core";
 import type { Database } from "./client";
 import { files, spaces } from "./schema";
 
@@ -50,7 +50,14 @@ export function fileFilterSql(f: SearchFilters): SQL[] {
 /** Words → a prefix tsquery ("alpha invoic" → 'alpha:* & invoic:*'); null when nothing searchable is left. */
 export function toTsQuery(terms: string[]): string | null {
   const pieces = terms.flatMap((t) => t.split(/[^\p{L}\p{N}]+/u)).filter((p) => p.length > 0);
-  return pieces.length ? pieces.map((p) => `${p}:*`).join(" & ") : null;
+  if (!pieces.length) return null;
+  // Each word as a prefix, plus its singular ("invoices" → invoices:* | invoice:*).
+  return pieces
+    .map((p) => {
+      const forms = termVariants(p).map((v) => `${v}:*`);
+      return forms.length > 1 ? `(${forms.join(" | ")})` : forms[0]!;
+    })
+    .join(" & ");
 }
 
 // Query embeddings are cached briefly: typing the same query again (or paging) costs nothing.

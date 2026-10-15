@@ -60,5 +60,10 @@
     "tiny": "Tiny",
     "screenshot": "Screenshots",
     "suggested_delete": "Suggested for deletion"
+  },
+  "preview": {
+    "none": "No preview for this type of file. Download it to open it.",
+    "download": "Download",
+    "showInSpace": "Show in its space"
   }
 }

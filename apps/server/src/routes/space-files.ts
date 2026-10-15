@@ -14,6 +14,14 @@ import { requireOrg, requirePermission } from "../middleware/auth";
 
 type FileRow = typeof files.$inferSelect;
 
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", avif: "image/avif", bmp: "image/bmp",
+  pdf: "application/pdf", txt: "text/plain; charset=utf-8", md: "text/plain; charset=utf-8", csv: "text/csv; charset=utf-8", json: "application/json",
+  log: "text/plain; charset=utf-8", mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", ogg: "audio/ogg",
+};
+/** Content type for previews; anything active (HTML, SVG, scripts) is served as an opaque download. */
+export const contentTypeOf = (ext: string) => CONTENT_TYPES[ext.toLowerCase()] ?? "application/octet-stream";
+
 /** What the browser needs about a file (no provider internals). */
 export function publicFile(f: FileRow) {
   return {
@@ -206,6 +214,34 @@ export function spaceFileRoutes(deps: Deps) {
       if (err instanceof EngineError) throw new HTTPException(err.code === "forbidden" ? 403 : 409, { message: err.message });
       throw err;
     }
+  });
+
+  /**
+   * File content, for previews and downloads. Always sent as an attachment with nosniff (never rendered by the API
+   * origin); the web app shows previews from a blob. Read-only: nothing changes.
+   */
+  app.get("/:orgId/spaces/:spaceId/files/:fileId/content", requirePermission("file", "view"), async (c) => {
+    const orgId = c.get("org").id;
+    const space = await spaceOr404(orgId, c.req.param("spaceId"));
+    const fileId = c.req.param("fileId");
+    const file = z.string().uuid().safeParse(fileId).success ? await scoped(deps.db, orgId).first(files, and(eq(files.id, fileId), eq(files.spaceId, space.id)) as SQL) : undefined;
+    if (!file || file.status === "trashed") throw new HTTPException(404, { message: "File not found." });
+    let stream: ReadableStream<Uint8Array>;
+    try {
+      stream = await deps.adapterFor(space).download({ id: file.providerRef });
+    } catch (err) {
+      throw new HTTPException(409, { message: err instanceof Error ? err.message : "The file can't be read right now." });
+    }
+    const ascii = file.name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+    return new Response(stream, {
+      headers: {
+        "content-type": contentTypeOf(file.ext),
+        "content-disposition": `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+        "x-content-type-options": "nosniff",
+        "cache-control": "private, max-age=60",
+        ...(file.size ? { "content-length": String(file.size) } : {}),
+      },
+    });
   });
 
   /** Audit log of this space, newest first, with "undone by" derived from undo events (the log is append-only). */

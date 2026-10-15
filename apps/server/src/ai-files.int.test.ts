@@ -210,3 +210,23 @@ describe("space files", () => {
     expect((await editor.req(`/api/orgs/${orgId}/spaces/${spaceId}/scan`, { body: { withAI: false } })).status).toBe(202);
   });
 });
+
+describe("file content (previews)", () => {
+  it("streams the file as an attachment with a safe content type; others get 404", async () => {
+    await fs.writeFile(path.join(dir, "hello.txt"), "hello preview");
+    await fs.writeFile(path.join(dir, "page.html"), "<script>alert(1)</script>");
+    const txt = await addFile("hello.txt");
+    const html = await addFile("page.html");
+    const res = await viewer.req(`/api/orgs/${orgId}/spaces/${spaceId}/files/${txt.id}/content`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="hello.txt"/);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await res.text()).toBe("hello preview");
+    const h = await viewer.req(`/api/orgs/${orgId}/spaces/${spaceId}/files/${html.id}/content`);
+    expect(h.headers.get("content-type")).toBe("application/octet-stream");
+    await h.arrayBuffer();
+    expect((await stranger.req(`/api/orgs/${orgId}/spaces/${spaceId}/files/${txt.id}/content`)).status).toBe(404);
+    expect((await viewer.req(`/api/orgs/${orgId}/spaces/${spaceId}/files/${randomUUID()}/content`)).status).toBe(404);
+  });
+});

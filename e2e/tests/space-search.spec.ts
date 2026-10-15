@@ -13,7 +13,7 @@ test("server: search by words and meaning, with filters", async ({ page }) => {
   await page.getByRole("button", { name: /Sample files \(dev\)/ }).click();
 
   const box = page.getByRole("searchbox", { name: "Search files" });
-  await box.fill("alpha invoice");
+  await box.fill("alpha invoices"); // plural still finds "invoice"
   await expect(page).toHaveURL(/\/search\?q=alpha/);
   const results = page.getByTestId("search-results");
   await expect(results.getByRole("button").first()).toContainText("invoice-1001.txt");
@@ -39,6 +39,9 @@ test("server: search by words and meaning, with filters", async ({ page }) => {
   await page.getByLabel("Category").selectOption("Invoices");
   await expect(page.getByTestId("search-total")).toHaveText("1 result");
 
+  // Opening a result previews it in place; "Show in its space" goes to the file.
   await results.getByRole("button").first().click();
+  await expect(page.getByTestId("server-preview")).toContainText("INVOICE 1001");
+  await page.getByRole("button", { name: "Show in its space" }).click();
   await expect(page.getByRole("textbox", { name: "Search name or path" })).toHaveValue("invoice-1001.txt");
 });

@@ -94,6 +94,8 @@ describe("hybrid search", () => {
     expect(r.hits[0]!.sources).toEqual(["words"]);
     expect(names(await searchFiles(t.db, "org_s", { q: "cafe creme" }))).toEqual(["Café Menu.docx"]);
     expect(names(await searchFiles(t.db, "org_s", { q: "invoi" }))).toContain("Invoice 1001.pdf"); // prefix while typing
+    expect(names(await searchFiles(t.db, "org_s", { q: "invoices alpha" }))).toEqual(["Invoice 1001.pdf"]); // plural finds singular
+    expect(names(await searchFiles(t.db, "org_s", { q: "menus" }))).toEqual(["Café Menu.docx"]);
     expect(names(await searchFiles(t.db, "org_other", { q: "invoice" }))).toEqual(["invoice-secret.pdf"]);
   });
 

@@ -5,7 +5,7 @@
 import { db, type FileRecord } from "./db";
 import { getSettings } from "./settings";
 import type { AIProvider } from "@folderpilot/ai";
-import { cosine, embedText as sharedEmbedText, hashText, norm, parseQuery, rrf, type ParsedQuery } from "@folderpilot/core";
+import { cosine, embedText as sharedEmbedText, hashText, norm, parseQuery, rrf, termVariants, type ParsedQuery } from "@folderpilot/core";
 
 export { cosine, norm, parseQuery };
 
@@ -31,8 +31,6 @@ export function matchesParsed(f: FileRecord, q: ParsedQuery): boolean {
   return true;
 }
 
-/** "invoices" also matches "invoice". */
-const variants = (term: string) => (term.length > 4 && term.endsWith("s") ? [term, term.slice(0, -1)] : [term]);
 
 /**
  * Keyword search: every word must match somewhere (name counts most, then client, category, caption…).
@@ -50,7 +48,7 @@ export function keywordSearch(files: FileRecord[], query: string, now = new Date
     let ok = true;
     for (const term of q.terms) {
       let best = 0;
-      for (const v of variants(term)) {
+      for (const v of termVariants(term)) {
         for (const [h, w] of hay) if (h.includes(v)) best = Math.max(best, w);
         if (tags.includes(v)) best = Math.max(best, 3);
       }

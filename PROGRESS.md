@@ -50,7 +50,9 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
   - Filters with counts: type, modified, category, space, flag, client.
   - Results show the name, space or folder, path, date, category, a highlighted snippet and a "by meaning" badge.
   - "Show more" pages through results.
-  - Opening a result: quick look on this device; the file in its space on servers.
+  - Opening a result: quick look on this device; on servers a preview (images, PDF, text, video, audio) from the new
+    `GET …/spaces/:id/files/:fileId/content` (always an attachment with `nosniff`; previews render from a blob),
+    with Download and "Show in its space".
   - The command palette gains "Search all files for …".
   - **This device** uses the same parser and RRF in the browser. Its meaning index now updates by itself after AI
     analysis when the device AI can embed (Settings keeps a "Rebuild index" button).
@@ -299,9 +301,8 @@ e2e/            Playwright smoke tests
 - The agent's rule proposals are always Suggest; only a person (an admin on servers) can make a rule Auto.
 - Search by meaning needs an embedding model (an org AI that can embed, or `OLLAMA_URL` on the server). Without one,
   search uses words only and says so. Real embedding quality is untested here (mock embeddings only).
-- Full-text uses the language-neutral `simple` configuration (no stemming), so "invoices" matches "invoice" only
-  by prefix ("invoice" finds "invoices", not the other way round). Search by meaning covers the rest.
-- Search results on server spaces open the file in All files (filtered by name); file previews come with Cloud mode.
+- Full-text uses the language-neutral `simple` configuration plus light English plural folding ("invoices" finds
+  "invoice", "companies" finds "company"); other word forms rely on prefix matching and search by meaning.
 - Conversations live in the browser tab (sessionStorage); they aren't saved on the server or shared across devices.
 - File chips in server-space answers show names only (quick look for server files comes with Cloud mode previews).
 - Real model quality isn't measured here: the agent is tested with scripted mock AIs (no Anthropic key in this

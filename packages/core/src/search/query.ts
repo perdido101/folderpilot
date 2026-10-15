@@ -120,3 +120,15 @@ export function removeChip(q: string, chip: QueryChip): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Light English plural folding, so "invoices" also finds "invoice" (full-text uses the language-neutral 'simple'
+ * configuration). The original word always comes first; prefix matching covers the other direction.
+ */
+export function termVariants(term: string): string[] {
+  const out = [term];
+  if (term.length > 4 && /ies$/.test(term)) out.push(`${term.slice(0, -3)}y`); // companies → company
+  else if (term.length > 4 && /(sses|xes|ches|shes)$/.test(term)) out.push(term.slice(0, -2)); // boxes → box
+  else if (term.length > 3 && /[^s]s$/.test(term)) out.push(term.slice(0, -1)); // invoices → invoice
+  return out;
+}
