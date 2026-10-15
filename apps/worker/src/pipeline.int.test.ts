@@ -88,6 +88,13 @@ beforeAll(async () => {
     let body = "";
     req.on("data", (c: Buffer) => (body += c.toString()));
     req.on("end", () => {
+      if (req.url?.endsWith("/embeddings")) {
+        // Search by meaning (not an AI insight call).
+        const input = (JSON.parse(body) as { input: string[] }).input;
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ data: input.map((_t, index) => ({ index, embedding: [1, index, 0.5] })) }));
+        return;
+      }
       aiCalls++;
       const unclear = body.includes("unclear");
       const insight = {

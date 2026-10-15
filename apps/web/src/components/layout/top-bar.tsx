@@ -1,10 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Command, Keyboard, PanelRight, Search, Sparkles } from "lucide-react";
+import { Command, Keyboard, PanelRight, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useBrowserProvider } from "@/lib/ai/provider";
-import { Button, Input, cn } from "@folderpilot/ui";
-import { useSettings } from "@/lib/settings";
+import { Button, Input } from "@folderpilot/ui";
 import { useUI } from "@/stores/ui";
 import { AccountMenu } from "./account-menu";
 import { AiStatusPill } from "./ai-status-pill";
@@ -13,9 +11,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 export function TopBar() {
   const { t } = useTranslation("shell");
-  const { search, setSearch, agentPanelOpen, toggleAgentPanel, semanticSearch, setSemanticSearch, setPaletteOpen, setShortcutsOpen } = useUI();
-  const settings = useSettings();
-  const canEmbed = Boolean(useBrowserProvider(settings.ai)?.embed);
+  const { search, setSearch, agentPanelOpen, toggleAgentPanel, setPaletteOpen, setShortcutsOpen } = useUI();
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,24 +38,19 @@ export function TopBar() {
           type="search"
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value);
-            if (location.pathname !== "/") navigate("/");
+            const value = e.target.value;
+            setSearch(value);
+            // Results live on the Search page; typing keeps it in sync (replace, so Back leaves search).
+            navigate(`/search?${new URLSearchParams({ ...Object.fromEntries(location.pathname === "/search" ? new URLSearchParams(location.search) : []), q: value })}`, { replace: location.pathname === "/search" });
           }}
-          onKeyDown={(e) => e.key === "Escape" && (e.target as HTMLInputElement).blur()}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") (e.target as HTMLInputElement).blur();
+            if (e.key === "Enter") navigate(`/search?${new URLSearchParams({ q: search })}`, { replace: location.pathname === "/search" });
+          }}
           placeholder={t("search.placeholder")}
-          className="pl-9 pr-10"
+          className="pl-9"
           aria-label={t("search.label")}
         />
-        {canEmbed && (
-          <button
-            onClick={() => setSemanticSearch(!semanticSearch)}
-            className={cn("absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1", semanticSearch ? "text-accent" : "text-muted hover:text-text")}
-            aria-pressed={semanticSearch}
-            title={semanticSearch ? t("search.semanticOn") : t("search.semanticOff")}
-          >
-            <Sparkles className="size-4" />
-          </button>
-        )}
       </div>
       <button onClick={() => setPaletteOpen(true)} className="hidden items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-text md:inline-flex" title={t("palette.label")}>
         <Command className="size-3" />K

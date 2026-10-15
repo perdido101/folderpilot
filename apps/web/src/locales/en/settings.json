@@ -59,14 +59,15 @@
     "pull": "Then pull the models:"
   },
   "semantic": {
-    "title": "Semantic search",
-    "description": "Find files by meaning (“tax papers for the bakery”), not just by words. Needs a provider with embeddings.",
-    "build": "Build / update semantic index",
+    "title": "Search by meaning",
+    "description": "Find files by meaning (“tax papers for the bakery”), not just by words. Needs a provider with embeddings (Ollama or OpenAI-compatible).",
+    "build": "Rebuild index for this folder",
     "starting": "Starting…",
     "indexing": "Indexing {{progress}}",
     "updated_one": "Semantic index updated ({{count}} file)",
     "updated_other": "Semantic index updated ({{count}} files)",
-    "useInSearch": "Use semantic search in the search bar"
+    "auto": "Kept up to date automatically after AI analysis; search uses it whenever it’s there.",
+    "needsEmbeddings": "This AI can’t make embeddings, so search uses words only."
   },
   "thresholds": {
     "title": "Analysis thresholds",

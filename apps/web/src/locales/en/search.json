@@ -1,0 +1,64 @@
+{
+  "title": "Search",
+  "titleFor": "Search: “{{query}}”",
+  "noFolder": "Open a folder (or a space) to search it.",
+  "empty": "Nothing matches. Try other words, or remove a filter.",
+  "emptyServer": "Nothing matches in your spaces. Try other words, or remove a filter.",
+  "total_one": "{{count}} result",
+  "total_other": "{{count}} results",
+  "searching": "searching…",
+  "more": "Show more",
+  "byMeaning": "by meaning",
+  "byMeaningHint": "Found because it is about what you searched for, even without the exact words.",
+  "removeChip": "Remove “{{chip}}”",
+  "semantic": {
+    "on": "words and meaning",
+    "off": "words only",
+    "unavailable": "words only — set up search by meaning",
+    "error": "words only — search by meaning is unavailable right now"
+  },
+  "chips": {
+    "year": "Year: {{value}}",
+    "date": "Modified: {{value}}",
+    "kind": "Type: {{value}}",
+    "ext": "File: .{{value}}",
+    "flag": "Flag: {{value}}"
+  },
+  "filters": {
+    "type": "Type",
+    "anyType": "Any type",
+    "date": "Modified",
+    "category": "Category",
+    "anyCategory": "Any category",
+    "space": "Space",
+    "anySpace": "All spaces",
+    "flag": "Flag",
+    "anyFlag": "Any flag",
+    "client": "Client",
+    "anyClient": "Any client"
+  },
+  "dates": {
+    "any": "Any time",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "thisYear": "This year",
+    "lastYear": "Last year"
+  },
+  "values": {
+    "image": "Images",
+    "document": "Documents",
+    "spreadsheet": "Spreadsheets",
+    "video": "Videos",
+    "audio": "Audio",
+    "archive": "Archives",
+    "code": "Code & data",
+    "other": "Other",
+    "duplicate": "Duplicates",
+    "near_duplicate": "Near-duplicates",
+    "blurry": "Blurry",
+    "dark": "Dark",
+    "tiny": "Tiny",
+    "screenshot": "Screenshots",
+    "suggested_delete": "Suggested for deletion"
+  }
+}

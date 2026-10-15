@@ -6,6 +6,8 @@ import { registerMemoryFiles, registerRootHandle } from "@/lib/file-access-cache
 import { runLocalAnalysis } from "@/lib/analysis/runner";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
 import { runRulesOnNewFiles } from "@/lib/rules/device-runner";
+import { refreshEmbeddings } from "@/lib/search";
+import { browserProvider } from "@/lib/ai/provider";
 import { announceRuleOutcomes } from "@/features/rules/announce";
 import { navigateTo } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
@@ -71,6 +73,8 @@ async function analyzeAfterIndex(rootId: number) {
   await runLocalAnalysis(rootId);
   const settings = await getSettings();
   if (settings.autoAnalyzeWithAI && settings.ai.provider !== "none") await runAIAnalysis(rootId).catch(() => undefined);
+  // Search by meaning: embed new/changed files when the device AI can (quietly skipped otherwise).
+  await refreshEmbeddings(rootId, browserProvider(settings.ai)).catch(() => 0);
   // New/changed files are ready: run the rules (auto rules apply, suggest rules wait in Pending Approvals).
   const outcomes = await runRulesOnNewFiles(rootId).catch(() => []);
   announceRuleOutcomes(

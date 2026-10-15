@@ -24,6 +24,7 @@ import { RecentPage } from "@/features/pages/recent-page";
 import { SharedPage } from "@/features/pages/shared-page";
 import { NeedsReviewPage } from "@/features/review/needs-review-page";
 import { RulesPage } from "@/features/rules/rules-page";
+import { SearchPage } from "@/features/search/search-page";
 import { ServerApprovals } from "@/features/server-space/server-approvals";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { TrashPage } from "@/features/trash/trash-page";
@@ -58,6 +59,7 @@ const router = createBrowserRouter(
         { path: "categories", element: <SpaceRoute device={<CategoriesPage />} phase={6} /> },
         { path: "duplicates", element: <SpaceRoute device={<DuplicatesPage />} server={(s) => <ServerDuplicates space={s} />} /> },
         { path: "rules", element: <RulesPage /> },
+        { path: "search", element: <SearchPage /> },
         { path: "approvals", element: <SpaceRoute device={<ApprovalsPage />} server={(space) => <ServerApprovals space={space} />} /> },
         { path: "audit", element: <AuditTabs><SpaceRoute device={<AuditPage />} server={(s) => <ServerAudit space={s} />} /></AuditTabs> },
         { path: "shared", element: <SharedPage /> },

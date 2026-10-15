@@ -7,7 +7,8 @@
     "goTo": "Go to",
     "actions": "Actions",
     "theme": "Theme",
-    "agent": "Agent"
+    "agent": "Agent",
+    "search": "Search"
   },
   "items": {
     "chooseFolder": "Choose folder…",
@@ -19,7 +20,8 @@
     "lightTheme": "Light theme",
     "darkTheme": "Dark theme",
     "systemTheme": "System theme",
-    "ask": "Ask the agent: “{{query}}”"
+    "ask": "Ask the agent: “{{query}}”",
+    "searchAll": "Search all files for “{{query}}”"
   },
   "analyzed_one": "AI analyzed {{count}} file",
   "analyzed_other": "AI analyzed {{count}} files",

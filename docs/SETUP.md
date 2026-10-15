@@ -178,6 +178,26 @@ Low-confidence results land in **Needs Review**. Moving/renaming/trashing is ref
    Then **Settings → AI provider → Local — Ollama → Test connection**.
 4. **Server mode**: set `OLLAMA_URL=http://localhost:11434` (or `http://ollama:11434` inside docker-compose.selfhost, phase 9).
 
+### <a id="embeddings"></a>7b. Search by meaning (embeddings)
+
+Search always works by words. It also finds files by meaning ("bill" finds invoices) when an embedding model is
+available. Which one is used, in order:
+
+1. **The organization's own AI**, if it can make embeddings: *OpenAI-compatible* (uses its **Embedding model**, asked
+   for 1024 dimensions — `text-embedding-3-small` / `-large` support that) or *Ollama* (its **Embedding model**).
+2. **The server's Ollama**: when the organization uses FolderPilot AI or Claude/Bedrock/Vertex (they have no
+   embeddings), set `OLLAMA_URL` and optionally `FP_EMBED_MODEL` in `.env` (default `nomic-embed-text`; good
+   alternatives: `mxbai-embed-large`, `bge-m3`), then `ollama pull <model>` on that machine.
+3. Neither: search uses words only, and the Search page says "words only — set up search by meaning".
+
+Notes:
+- FolderPilot stores 1024-dimensional vectors. Smaller models are padded (no quality loss); models with more than
+  1024 dimensions that can't reduce them are refused with a clear message in the worker log.
+- The worker embeds new and changed files in the background after analysis (and re-checks every 15 minutes). Changing
+  the embedding model re-embeds files automatically; only vectors from the same model are compared.
+- On **This device**, the folder's index updates after AI analysis when your device AI can embed (Settings →
+  *Search by meaning* → *Rebuild index* forces a full rebuild).
+
 ## <a id="stripe"></a>8. Stripe (billing, phase 11)
 
 1. <https://dashboard.stripe.com/test/apikeys> → copy the **Secret key** (`sk_test_…`) → `STRIPE_SECRET_KEY`.

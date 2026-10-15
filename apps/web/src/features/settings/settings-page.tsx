@@ -11,7 +11,6 @@ import { saveSettings, useSettings, type AISettings, type ProviderKind, type Thr
 import { cn } from "@folderpilot/ui";
 import { useActiveRoot } from "@/hooks/use-active-root";
 import { toast } from "@/stores/toasts";
-import { useUI } from "@/stores/ui";
 import { useMode } from "@/stores/mode";
 import { useActiveOrg, useFeatures } from "@/hooks/use-me";
 import { OrgAISettings } from "./org-ai-settings";
@@ -90,7 +89,6 @@ export function SettingsPage() {
   const settings = useSettings();
   const { t } = useTranslation("settings");
   const root = useActiveRoot();
-  const { semanticSearch, setSemanticSearch } = useUI();
   const [embedding, setEmbedding] = useState<string | null>(null);
   const ai = settings.ai;
   const setAI = <K extends keyof AISettings>(key: K, value: AISettings[K]) => void saveSettings((s) => ({ ...s, ai: { ...s.ai, [key]: value } }));
@@ -253,7 +251,6 @@ export function SettingsPage() {
                 try {
                   const n = await buildEmbeddings(root.id, provider, model, (d, t) => setEmbedding(`${d}/${t}`));
                   toast(t("semantic.updated", { count: n }), "success");
-                  setSemanticSearch(true);
                 } catch (err) {
                   toast(err instanceof Error ? err.message : String(err), "error");
                 } finally {
@@ -264,16 +261,7 @@ export function SettingsPage() {
               {embedding !== null && <Loader2 className="animate-spin" />}
               {embedding !== null ? t("semantic.indexing", { progress: embedding }) : t("semantic.build")}
             </Button>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-[rgb(var(--accent))]"
-                checked={semanticSearch}
-                onChange={(e) => setSemanticSearch(e.target.checked)}
-                disabled={!provider?.embed}
-              />
-              {t("semantic.useInSearch")}
-            </label>
+            <span className="text-xs text-muted">{provider?.embed ? t("semantic.auto") : t("semantic.needsEmbeddings")}</span>
           </div>
         </Section>
 

@@ -10,8 +10,51 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 3 | Analysis + AI: analysis package (browser + worker), BullMQ jobs, four AI providers, insight pipeline, Needs Review, Duplicates & Bad Files | ✅ done |
 | 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ✅ done |
 | 5 | Agent: tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode | ✅ done |
-| 6 | Search: full-text + pgvector hybrid, filters, search UI | ⏭ next |
-| 7–14 | see `CLAUDE.md` §20 | — |
+| 6 | Search: full-text + pgvector hybrid, filters, search UI | ✅ done |
+| 7 | Cloud mode: fp-cloud adapter, uploads, previews, versions, shares, quotas, ClamAV | ⏭ next |
+| 8–14 | see `CLAUDE.md` §20 | — |
+
+## Phase 6 — done
+
+- **One query language everywhere** (`packages/core/src/search`). Natural queries become words plus filters, shown
+  as removable chips:
+  - "invoices from Alpha 2025 pdf" → words `invoices alpha` + year 2025 + `.pdf`;
+  - kind words: photos, documents, spreadsheets…;
+  - flag words: screenshots, duplicates, blurry, dark;
+  - relative dates: today, yesterday, this/last week, month, year.
+
+  Results are merged with **reciprocal-rank fusion**, which also reports whether each file was found by words, by
+  meaning, or both.
+- **Words: Postgres full-text** (migration 0007).
+  - A trigger keeps a weighted `search_tsv` up to date (name/client > caption/category/tags/docType > folder path
+    > extracted text).
+  - It is accent-insensitive (`unaccent`, so "cafe" finds "Café") and language-neutral, with prefix matching while
+    you type.
+  - GIN index. Highlighted snippets from the caption or text.
+- **Meaning: pgvector**, with an HNSW cosine index and filtered iterative scans.
+  - Every vector records its model, and only vectors from the same model are compared, so changing the model
+    re-embeds files.
+  - Vectors are stored at 1024 dimensions: smaller models are zero-padded (cosine unchanged); larger ones are refused
+    with a clear message. OpenAI-compatible endpoints are asked for 1024 dimensions, and asked again without it if
+    they don't support that.
+  - **Which model:** the org's AI if it can embed (OpenAI-compatible, Ollama), else the server's Ollama
+    (`OLLAMA_URL` + new `FP_EMBED_MODEL`), else words only.
+  - The worker's new `embeddings` job embeds new/changed files after analysis (skipping unchanged text), and the
+    15-minute tick re-queues anything missing.
+- **API:** `GET /api/orgs/:id/search` searches all of an organization's spaces (or one). Filters: type, extension,
+  category, space, flag, client, date range. It returns facet counts for the filter menus and says whether meaning
+  was used. The agent's `search_files` on server spaces now uses the same hybrid search.
+- **Web: a new Search page.**
+  - Typing in the top bar opens it.
+  - Chips for recognized words, each with ×.
+  - Filters with counts: type, modified, category, space, flag, client.
+  - Results show the name, space or folder, path, date, category, a highlighted snippet and a "by meaning" badge.
+  - "Show more" pages through results.
+  - Opening a result: quick look on this device; the file in its space on servers.
+  - The command palette gains "Search all files for …".
+  - **This device** uses the same parser and RRF in the browser. Its meaning index now updates by itself after AI
+    analysis when the device AI can embed (Settings keeps a "Rebuild index" button).
+  - The All Files page no longer filters by the top-bar search: that lives on the Search page.
 
 ## Phase 5 — done
 
@@ -206,42 +249,28 @@ e2e/            Playwright smoke tests
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
-## Verified (after phase 5)
+## Verified (after phase 6)
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
-- `pnpm test` — 235 unit tests:
-  - ai 39 (adds the agent loop: streaming, tool rounds, plans/files events, unknown and "delete" tools refused, round
-    limit, capped results, Stop; exactly the spec tools; English prompt);
-  - core 91 (adds `autoApproveSmall`: threshold, never rule changes or trash, MCP only when allowed);
-  - web 61 (adds device tools: folder scoping, pending agent plans, flag-as-plan with auto-run under the limit only,
-    Suggest-only rules and revisions, audit filter + undo proposal, stats; the tool-call log; the chat store:
-    streamed text, tool chips, plans, files, errors, attachments, per-tab persistence);
+- `pnpm test` — 241 unit tests:
+  - core 98 (adds query parsing incl. relative dates, chip removal, RRF, padding keeps cosine, oversized vectors
+    refused, embed-text hash);
+  - ai 41 (adds the OpenAI `dimensions` request and its retry, and the embedder fallback order with padding);
+  - web 62 (device hybrid search with RRF and sources, incremental index build);
   - analysis 27, adapters 4, server 11, worker 2.
-- `pnpm test:integration` (real Postgres + Redis) — server 35 (adds the agent route with a scripted AI:
-  - SSE event order;
-  - a pending plan with actor `agent:<user>` that only changes after approval;
-  - the plan card by id;
-  - audit actor;
-  - tool-call log;
-  - usage;
-  - space scoping;
-  - delete refused;
-  - viewer limits;
-  - rule propose/revise (Suggest only);
-  - stats by category/flag/year;
-  - audit filter;
-  - undo proposal;
-  - flag plan pending vs. auto-run under the org limit;
-  - activity visibility;
-  - other orgs 404;
-  - no AI → 409),
-
-  plus db 16 and worker 8.
-- `pnpm test:e2e` (Playwright, real worker + mock AI that can stream tool calls) — 11 tests, adding:
-  - **server space:** "tag the invoice as paid" → streamed reply with tool lines → Plan Card → Approve → Audit Log
-    shows `agent:` → Undo → Agent activity lists the tool calls → mini mode shows the conversation;
-  - **this device:** ask from the command palette → Plan Card → Cancel.
-- `pnpm dev` with migration 0006 — web :5173, API :3000 (health ok), worker started, agent activity endpoint answers.
+- `pnpm test:integration` (real Postgres + Redis + pgvector):
+  - db 23 (adds the trigger keeping `search_tsv` current, ranking name > text, accents, prefix, trashed and other orgs
+    excluded, snippets, every filter, facets, meaning with fake vectors, same-model only, "both" ranks first,
+    query-vector cache, fallback to words when the model fails, GIN/HNSW index use in EXPLAIN);
+  - server 40 (adds the search API: all spaces, chips, facets, filters, meaning on/off/unavailable, the agent's
+    hybrid `search_files`, 404/400 scoping);
+  - worker 11 (adds the embeddings job: padded vectors, unchanged text skipped, edited text and new model re-embed,
+    the server-Ollama fallback, no model → no-op).
+- `pnpm test:e2e` — 13 tests, adding:
+  - **server:** "alpha invoice" → invoice first with highlighted match → "bill" found by meaning → "photos" chip →
+    remove it → Type and Category filters → open the result in its space;
+  - **this device:** "invoice this year" → date chip, results → remove the chip → Type filter.
+- `pnpm dev` on the 537-file sample: searches answer in 40–125 ms (words; no embedding model is set up here).
 
 ## What you need to configure
 
@@ -268,9 +297,11 @@ e2e/            Playwright smoke tests
   a rules run is already going, they're picked up by the next run or the tick (at most ~15 minutes later).
 - On this device, scheduled rules only run while the app is open (browsers can't run in the background).
 - The agent's rule proposals are always Suggest; only a person (an admin on servers) can make a rule Auto.
-- The agent's server search is a simple all-words match over name, path, caption, tags, category, text and entities
-  until phase 6 brings hybrid full-text + semantic search. On this device it uses semantic search when you've built
-  the semantic index.
+- Search by meaning needs an embedding model (an org AI that can embed, or `OLLAMA_URL` on the server). Without one,
+  search uses words only and says so. Real embedding quality is untested here (mock embeddings only).
+- Full-text uses the language-neutral `simple` configuration (no stemming), so "invoices" matches "invoice" only
+  by prefix ("invoice" finds "invoices", not the other way round). Search by meaning covers the rest.
+- Search results on server spaces open the file in All files (filtered by name); file previews come with Cloud mode.
 - Conversations live in the browser tab (sessionStorage); they aren't saved on the server or shared across devices.
 - File chips in server-space answers show names only (quick look for server files comes with Cloud mode previews).
 - Real model quality isn't measured here: the agent is tested with scripted mock AIs (no Anthropic key in this

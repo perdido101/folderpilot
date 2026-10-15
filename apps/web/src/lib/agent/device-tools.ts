@@ -8,7 +8,7 @@ import { cleanFolderPath, dryRun, matchesRule, ruleProblem, type Condition, type
 import { db, type FileRecord, type StepInput } from "../db";
 import { createPlan, engine, executePlan, LOCAL_ACTOR } from "../actions/engine";
 import { undoneIds } from "../actions/undone";
-import { keywordSearch, semanticSearch } from "../search";
+import { deviceEmbedModel, hybridSearch } from "../search";
 import { getSettings } from "../settings";
 
 export class DeviceToolError extends Error {}
@@ -116,10 +116,17 @@ export function createDeviceTools(rootId: number, opts: { provider?: AIProvider 
       const filter = asFilter(input.filters);
       const files = (await rootFiles()).filter((f) => matchesFilter(f, filter));
       const query = asText(input.query);
-      const hasEmbeddings = opts.provider?.embed && (await db.embeddings.where("rootId").equals(rootId).count()) > 0;
-      const results = hasEmbeddings ? await semanticSearch(rootId, files, query, opts.provider!) : keywordSearch(files, query);
-      const shown = results.slice(0, asInt(input.limit, 20, 100)).map((r) => r.file);
-      return { result: { total: results.length, files: shown.map((f) => ({ ...compact(f), caption: f.caption })) }, summary: `Found ${plural(results.length, "file")}`, fileIds: ids(shown) };
+      const res = await hybridSearch(rootId, files, query, { provider: opts.provider ?? null, model: await deviceEmbedModel() });
+      const shown = res.hits.slice(0, asInt(input.limit, 20, 100));
+      return {
+        result: {
+          total: res.hits.length,
+          searchedBy: res.semantic === "on" ? "words and meaning" : "words",
+          files: shown.map((h) => ({ ...compact(h.file), caption: h.file.caption, matchedBy: h.sources.join("+") || undefined })),
+        },
+        summary: `Found ${plural(res.hits.length, "file")}`,
+        fileIds: ids(shown.map((h) => h.file)),
+      };
     },
 
     async list_files(input) {

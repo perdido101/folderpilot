@@ -39,7 +39,7 @@ function FileName({ file }: { file: SpaceFile }) {
 
 export function ServerFilesView({ space }: { space: ActiveServerSpace }) {
   const { t } = useTranslation("spaces");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const files = useSpaceFiles(space.orgId, space.id, q ? { q } : {}).data;
   return (
     <div className="flex h-full flex-col">

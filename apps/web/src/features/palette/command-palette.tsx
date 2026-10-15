@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
 import { useTranslation } from "react-i18next";
-import { Bot, FolderOpen, Keyboard, Monitor, Moon, PanelRight, RefreshCw, Sparkles, Sun, AppWindow } from "lucide-react";
+import { Bot, FolderOpen, Keyboard, Monitor, Moon, PanelRight, RefreshCw, Sparkles, Sun, AppWindow, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@folderpilot/ui";
 import { chooseFolder } from "@/lib/folder-source";
 import { keywordSearch } from "@/lib/search";
@@ -155,6 +155,14 @@ export function CommandPalette() {
                 {t("items.systemTheme")}
               </Command.Item>
             </Command.Group>
+            {query.trim() && (
+              <Command.Group heading={t("groups.search")} className={groupCls} forceMount>
+                <Command.Item forceMount value="search-everywhere" className={itemCls} onSelect={run(() => navigate(`/search?${new URLSearchParams({ q: query })}`))}>
+                  <Search />
+                  {t("items.searchAll", { query })}
+                </Command.Item>
+              </Command.Group>
+            )}
             {query.trim() && chatScope && (
               <Command.Group heading={t("groups.agent")} className={groupCls} forceMount>
                 <Command.Item

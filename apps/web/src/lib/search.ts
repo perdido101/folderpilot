@@ -1,80 +1,59 @@
+/**
+ * Search for folders on this device (spec §11): words (weighted fields) + meaning (embeddings, when the device AI can
+ * embed), merged with reciprocal-rank fusion — the same parser and fusion as the server.
+ */
 import { db, type FileRecord } from "./db";
+import { getSettings } from "./settings";
 import type { AIProvider } from "@folderpilot/ai";
+import { cosine, embedText as sharedEmbedText, hashText, norm, parseQuery, rrf, type ParsedQuery } from "@folderpilot/core";
 
-const STOPWORDS = new Set(
-  "the a an of to and or for in on with from by my our find show me all files file that this those these where is are was be please the το τα η ο οι με από απο του της των και για στο στη στα σε ένα μια βρες δείξε".split(" "),
-);
-
-/** Lowercase, strip accents (so "τιμολογιο" finds "Τιμολόγιο"). */
-export function norm(s: string): string {
-  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
-
-interface ParsedQuery {
-  terms: string[];
-  year?: number;
-  kind?: FileRecord["kind"];
-  ext?: string;
-  flag?: string;
-}
-
-const KIND_WORDS: [RegExp, Partial<ParsedQuery>][] = [
-  [/^(photos?|images?|pictures?|pics?|φωτογραφιες|φωτογραφια|εικονες|εικονα)$/, { kind: "image" }],
-  [/^(screenshots?|στιγμιοτυπα|στιγμιοτυπο)$/, { flag: "screenshot" }],
-  [/^(pdfs?)$/, { ext: "pdf" }],
-  [/^(spreadsheets?|excel|csv)$/, { kind: "spreadsheet" }],
-  [/^(videos?|βιντεο)$/, { kind: "video" }],
-  [/^(word|docx?)$/, { ext: "docx" }],
-];
-
-export function parseQuery(q: string): ParsedQuery {
-  const out: ParsedQuery = { terms: [] };
-  for (const raw of norm(q).split(/[\s,;:!?"'()]+/)) {
-    const w = raw.replace(/^[.#]+|[.]+$/g, "");
-    if (!w || STOPWORDS.has(w)) continue;
-    if (/^(19|20)\d\d$/.test(w)) {
-      out.year = Number(w);
-      continue;
-    }
-    const kind = KIND_WORDS.find(([re]) => re.test(w));
-    if (kind) Object.assign(out, kind[1]);
-    else out.terms.push(w.endsWith("s") && w.length > 4 ? w.slice(0, -1) : w); // "invoices" → "invoice"
-  }
-  return out;
-}
+export { cosine, norm, parseQuery };
 
 const FIELDS: [keyof FileRecord, number][] = [
   ["name", 5],
+  ["client", 4],
   ["category", 3],
-  ["client", 3],
   ["caption", 3],
+  ["docType", 3],
   ["suggestedName", 2],
   ["path", 2],
   ["textExcerpt", 1],
 ];
 
+/** Filters a parsed query implies (kind/extension/flag words, years, relative dates). */
+export function matchesParsed(f: FileRecord, q: ParsedQuery): boolean {
+  if (f.status === "trashed") return false;
+  if (q.kind && f.kind !== q.kind) return false;
+  if (q.ext && f.ext !== q.ext) return false;
+  if (q.flag && !f.flags.includes(q.flag as never)) return false;
+  if (q.from && f.mtime < Date.parse(q.from)) return false;
+  if (q.to && f.mtime >= Date.parse(q.to)) return false;
+  return true;
+}
+
+/** "invoices" also matches "invoice". */
+const variants = (term: string) => (term.length > 4 && term.endsWith("s") ? [term, term.slice(0, -1)] : [term]);
+
 /**
- * Keyword search over name, path, caption, tags, category, client and extracted text.
- * Every term must match somewhere; a year matches the modified date or appears in the text.
+ * Keyword search: every word must match somewhere (name counts most, then client, category, caption…).
+ * A query of only filter words ("screenshots 2026") lists the matching files, newest first.
  */
-export function keywordSearch(files: FileRecord[], query: string): { file: FileRecord; score: number }[] {
-  const q = parseQuery(query);
-  if (!q.terms.length && !q.year && !q.kind && !q.ext && !q.flag) return [];
+export function keywordSearch(files: FileRecord[], query: string, now = new Date()): { file: FileRecord; score: number }[] {
+  const q = parseQuery(query, now);
+  if (!q.terms.length && !q.chips.length) return [];
   const results: { file: FileRecord; score: number }[] = [];
   for (const f of files) {
-    if (f.status === "trashed") continue;
-    if (q.kind && f.kind !== q.kind) continue;
-    if (q.ext && f.ext !== q.ext) continue;
-    if (q.flag && !f.flags.includes(q.flag as never) && !norm(f.name).includes("screenshot")) continue;
+    if (!matchesParsed(f, q)) continue;
     const hay = FIELDS.map(([k, w]) => [norm(String(f[k] ?? "")), w] as const);
     const tags = norm(f.tags.join(" "));
-    if (q.year && new Date(f.mtime).getFullYear() !== q.year && !hay.some(([h]) => h.includes(String(q.year)))) continue;
     let score = 1;
     let ok = true;
     for (const term of q.terms) {
       let best = 0;
-      for (const [h, w] of hay) if (h.includes(term)) best = Math.max(best, w);
-      if (tags.includes(term)) best = Math.max(best, 3);
+      for (const v of variants(term)) {
+        for (const [h, w] of hay) if (h.includes(v)) best = Math.max(best, w);
+        if (tags.includes(v)) best = Math.max(best, 3);
+      }
       if (!best) {
         ok = false;
         break;
@@ -86,27 +65,7 @@ export function keywordSearch(files: FileRecord[], query: string): { file: FileR
   return results.sort((a, b) => b.score - a.score || b.file.mtime - a.file.mtime);
 }
 
-export function embedText(f: FileRecord): string {
-  return [f.name, f.category, f.client, f.caption, f.tags.join(", "), (f.textExcerpt ?? "").slice(0, 600)].filter(Boolean).join("\n");
-}
-
-function hashText(s: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return (h >>> 0).toString(36);
-}
-
-export function cosine(a: number[], b: number[]): number {
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    dot += a[i]! * b[i]!;
-    na += a[i]! * a[i]!;
-    nb += b[i]! * b[i]!;
-  }
-  return na && nb ? dot / Math.sqrt(na * nb) : 0;
-}
+export const embedText = (f: FileRecord) => sharedEmbedText({ name: f.name, category: f.category, client: f.client, docType: f.docType, caption: f.caption, tags: f.tags, textExcerpt: f.textExcerpt });
 
 /** Embed every file whose text changed since its last vector. Returns how many were (re)embedded. */
 export async function buildEmbeddings(rootId: number, provider: AIProvider, model: string, onProgress?: (done: number, total: number) => void): Promise<number> {
@@ -126,22 +85,74 @@ export async function buildEmbeddings(rootId: number, provider: AIProvider, mode
   return todo.length;
 }
 
-/** Semantic ranking by cosine similarity, blended with keyword matches. */
+export interface DeviceHit {
+  file: FileRecord;
+  score: number;
+  /** "words", "meaning" or both. */
+  sources: string[];
+}
+
+export interface DeviceSearch {
+  hits: DeviceHit[];
+  parsed: ParsedQuery;
+  semantic: "on" | "unavailable" | "error";
+}
+
+/**
+ * Hybrid search over a folder: words + meaning (when the provider can embed and the folder has an index for `model`),
+ * merged with reciprocal-rank fusion.
+ */
+export async function hybridSearch(rootId: number, files: FileRecord[], query: string, opts: { provider?: AIProvider | null; model?: string; minSimilarity?: number; now?: Date } = {}): Promise<DeviceSearch> {
+  const parsed = parseQuery(query, opts.now);
+  const words = keywordSearch(files, query, opts.now);
+  const provider = opts.provider;
+  if (!parsed.terms.length || !provider?.embed) return { hits: words.map((w) => ({ ...w, sources: parsed.terms.length ? ["words"] : [] })), parsed, semantic: provider?.embed ? "on" : "unavailable" };
+  let meaning: FileRecord[] = [];
+  let semantic: DeviceSearch["semantic"] = "on";
+  try {
+    const stored = await db.embeddings.where("rootId").equals(rootId).toArray();
+    const vectors = new Map(stored.filter((e) => !opts.model || e.model === opts.model).map((e) => [e.fileId, e.vector]));
+    if (vectors.size) {
+      const [qv] = await provider.embed([parsed.terms.join(" ")]);
+      if (qv) {
+        const min = opts.minSimilarity ?? 0.3;
+        meaning = files
+          .filter((f) => matchesParsed(f, parsed) && vectors.has(f.id))
+          .map((f) => ({ f, sim: cosine(qv, vectors.get(f.id)!) }))
+          .filter((x) => x.sim >= min)
+          .sort((a, b) => b.sim - a.sim)
+          .slice(0, 200)
+          .map((x) => x.f);
+      }
+    }
+  } catch {
+    semantic = "error";
+  }
+  const byId = new Map(files.map((f) => [f.id, f]));
+  const fused = rrf([
+    { name: "words", ids: words.slice(0, 200).map((w) => w.file.id) },
+    { name: "meaning", ids: meaning.map((f) => f.id) },
+  ]);
+  return { hits: fused.map((x) => ({ file: byId.get(x.id)!, score: x.score, sources: x.sources })), parsed, semantic };
+}
+
+/** The embedding model this device's AI uses (vectors from other models aren't compared). */
+export async function deviceEmbedModel(): Promise<string | undefined> {
+  const { ai } = await getSettings();
+  return ai.provider === "ollama" ? ai.ollama.embedModel : ai.provider === "openai" ? ai.openai.embedModel : undefined;
+}
+
+/**
+ * Keep the folder's index for search by meaning up to date (after AI analysis). Quietly does nothing when the device
+ * AI can't embed; returns how many files were embedded.
+ */
+export async function refreshEmbeddings(rootId: number, provider: AIProvider | null): Promise<number> {
+  const model = await deviceEmbedModel();
+  if (!provider?.embed || !model) return 0;
+  return buildEmbeddings(rootId, provider, model);
+}
+
+/** @deprecated kept for callers that only need files: hybrid search, files in rank order. */
 export async function semanticSearch(rootId: number, files: FileRecord[], query: string, provider: AIProvider): Promise<{ file: FileRecord; score: number }[]> {
-  if (!provider.embed) return keywordSearch(files, query);
-  const [qv] = await provider.embed([query]);
-  if (!qv) return keywordSearch(files, query);
-  const vectors = new Map((await db.embeddings.where("rootId").equals(rootId).toArray()).map((e) => [e.fileId, e.vector]));
-  const keyword = new Map(keywordSearch(files, query).map((r) => [r.file.id, r.score]));
-  const maxK = Math.max(1, ...keyword.values());
-  return files
-    .filter((f) => f.status !== "trashed")
-    .map((f) => {
-      const v = vectors.get(f.id);
-      const sem = v ? cosine(qv, v) : 0;
-      return { file: f, score: 0.7 * sem + 0.3 * ((keyword.get(f.id) ?? 0) / maxK) };
-    })
-    .filter((r) => r.score > 0.25)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 200);
+  return (await hybridSearch(rootId, files, query, { provider })).hits;
 }

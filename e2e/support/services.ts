@@ -22,6 +22,19 @@ const server = http.createServer((req, res) => {
   let body = "";
   req.on("data", (c: Buffer) => (body += c.toString()));
   req.on("end", () => {
+    if (req.url?.endsWith("/embeddings")) {
+      // Deterministic "meaning": words mapped to a few concepts ("bill" ≈ "invoice", "holiday" ≈ "beach").
+      const concepts: Record<string, number> = { bill: 1, invoice: 1, invoices: 1, receipt: 1, beach: 2, holiday: 2, photo: 2, photos: 2, note: 3, notes: 3, scribbles: 3 };
+      const input = (JSON.parse(body || "{}") as { input: string[] }).input;
+      const data = input.map((text, index) => {
+        const v = new Array<number>(8).fill(0.001);
+        for (const w of text.toLowerCase().split(/[^a-z0-9]+/)) if (concepts[w]) v[concepts[w]!]! += 1;
+        return { index, embedding: v };
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ model: "mock-embed", data }));
+      return;
+    }
     const parsed = JSON.parse(body || "{}") as { stream?: boolean; tools?: unknown[]; messages?: { role: string; content?: string | null; name?: string }[] };
     if (parsed.stream && parsed.tools?.length) {
       agentTurn(res, parsed.messages ?? []);

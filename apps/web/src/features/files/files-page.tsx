@@ -10,11 +10,9 @@ import { hasMemoryFiles } from "@/lib/file-access-cache";
 import { chooseFolder } from "@/lib/folder-source";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@folderpilot/ui";
-import { browserProvider } from "@/lib/ai/provider";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
 import { runLocalAnalysis } from "@/lib/analysis/runner";
 import { proposeFolders, proposeRules, proposeSuggestedNames } from "@/lib/actions/organize";
-import { keywordSearch, semanticSearch } from "@/lib/search";
 import { useSettings } from "@/lib/settings";
 import { DropZone } from "@/features/intake/drop-zone";
 import { IndexProgressCard } from "@/features/intake/index-progress";
@@ -42,8 +40,6 @@ export function FilesPage() {
   const root = useActiveRoot();
   const { status, error, connectFolder, dismiss } = useIndexing();
   const files = useRootFiles(root?.id);
-  const search = useUI((s) => s.search);
-  const semantic = useUI((s) => s.semanticSearch);
   const setViewMode = useUI((s) => s.setViewMode);
   const settings = useSettings();
   const phase = useAnalysis((s) => s.phase);
@@ -67,30 +63,12 @@ export function FilesPage() {
   const [dropError, setDropError] = useState<string | null>(null);
   const { dragging, bind } = useFolderDrop((h) => void connectFolder(h), setDropError);
 
-  // Search: keyword always; semantic when the provider supports embeddings and the toggle is on.
-  const [semanticHits, setSemanticHits] = useState<FileRecord[] | null>(null);
   const liveFiles = useMemo(() => (files ?? []).filter((f) => f.status !== "trashed"), [files]);
-  useEffect(() => {
-    setSemanticHits(null);
-    const provider = browserProvider(settings.ai);
-    if (!semantic || !search.trim() || !root || !provider?.embed) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      semanticSearch(root.id, liveFiles, search, provider)
-        .then((r) => !cancelled && setSemanticHits(r.map((x) => x.file)))
-        .catch((err: unknown) => toast(t("page.semanticFailed", { message: err instanceof Error ? err.message : String(err) }), "error"));
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [semantic, search, root, liveFiles, settings.ai, t]);
 
   const kindTest = KIND_FILTERS.find((k) => k.key === kind)!.test;
   const shown = useMemo(() => {
-    const base = search.trim() ? (semanticHits ?? keywordSearch(liveFiles, search).map((r) => r.file)) : liveFiles;
-    return base.filter(kindTest);
-  }, [liveFiles, search, semanticHits, kindTest]);
+    return liveFiles.filter(kindTest);
+  }, [liveFiles, kindTest]);
 
   if (root === undefined) return null; // first Dexie read
   if (status === "indexing") return <IndexProgressCard />;
@@ -195,12 +173,6 @@ export function FilesPage() {
             {t(`page.kinds.${k.key}`)}
           </button>
         ))}
-        {search.trim() && (
-          <span className="ml-auto text-xs text-muted">
-            {t("page.results", { count: shown.length, query: search })}
-            {semanticHits ? ` · ${t("page.semantic")}` : ""}
-          </span>
-        )}
       </div>
       {access === "prompt" && (
         <Banner tone="accent" icon={<Lock className="size-4" />}>
@@ -230,9 +202,8 @@ export function FilesPage() {
         rootId={root.id}
         files={shown}
         allFiles={liveFiles}
-        ranked={Boolean(search.trim())}
         accessKey={accessKey}
-        emptyText={search.trim() ? t("page.noMatch", { query: search }) : kind !== "all" ? t("page.noType") : t("browser.empty")}
+        emptyText={kind !== "all" ? t("page.noType") : t("browser.empty")}
       />
       {dragging && (
         <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent-soft/90 text-lg font-medium text-accent">
