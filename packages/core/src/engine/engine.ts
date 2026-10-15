@@ -237,6 +237,19 @@ export function createEngine(opts: EngineOptions) {
     await store.updatePlan(planId, { status: "approved", approvedAt: now() });
   }
 
+  /**
+   * Admins may let small agent (and, if allowed, MCP) plans run without approval (spec §2). Rule changes, trash and
+   * restore always need a person. Returns whether the plan was approved; otherwise it stays pending.
+   */
+  async function autoApproveSmall(planId: Id, settings: AutoRunSettings): Promise<boolean> {
+    const plan = await requirePlan(planId);
+    if (plan.status !== "pending" || (plan.source !== "agent" && plan.source !== "mcp")) return false;
+    if (plan.steps.some((s) => s.action === "rule_create" || s.action === "rule_update" || s.fileId === undefined)) return false;
+    if (!canAutoRun(plan, settings)) return false;
+    await store.updatePlan(planId, { status: "approved", approvedAt: now() });
+    return true;
+  }
+
   // ── Execution ─────────────────────────────────────────────────────────
 
   async function execute(planId: Id, run: { onProgress?: (e: ProgressEvent) => void } = {}): Promise<ExecResult> {
@@ -693,7 +706,7 @@ export function createEngine(opts: EngineOptions) {
     return execute(planId, runOpts?.onProgress ? { onProgress: runOpts.onProgress } : {});
   }
 
-  return { createPlan, keepSteps, cancel, approve, autoApprove, execute, run, resolveConflict, planUndo, undo, undoable };
+  return { createPlan, keepSteps, cancel, approve, autoApprove, autoApproveSmall, execute, run, resolveConflict, planUndo, undo, undoable };
 }
 
 export type Engine = ReturnType<typeof createEngine>;

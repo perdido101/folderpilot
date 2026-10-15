@@ -20,7 +20,7 @@ import {
   vector,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import type { Condition, RuleAction, RuleSchedule } from "@folderpilot/core";
+import type { AutoRunSettings, Condition, RuleAction, RuleSchedule } from "@folderpilot/core";
 import { organizations, users } from "./auth";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -374,8 +374,35 @@ export const orgSettings = pgTable("org_settings", {
   aiSecretsEncrypted: text("ai_secrets_encrypted"),
   thresholds: jsonb("thresholds").$type<Partial<OrgThresholds>>().notNull().default({}),
   aiMonthlyFileBudget: integer("ai_monthly_file_budget").notNull().default(1000),
+  /** Admins may let small agent/MCP plans run without approval (spec §2). Default: never. */
+  autoRun: jsonb("auto_run").$type<Partial<AutoRunSettings>>().notNull().default({}),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/**
+ * Every agent tool call (spec §9: "every tool call logged"). Input is a short summary without file contents.
+ * Separate from the audit log, which records changes.
+ */
+export const agentToolCalls = pgTable(
+  "agent_tool_calls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: orgId(),
+    /** Who the agent acted for (agent:<userId> in the audit log). */
+    userId: text("user_id").notNull(),
+    spaceId: uuid("space_id"),
+    /** "agent" (FolderPilot chat) or "mcp:<client>" later. */
+    via: text("via").notNull().default("agent"),
+    conversationId: text("conversation_id"),
+    tool: text("tool").notNull(),
+    input: text("input").notNull(),
+    ok: boolean("ok").notNull(),
+    error: text("error"),
+    durationMs: integer("duration_ms").notNull().default(0),
+    at: ts("at").notNull().defaultNow(),
+  },
+  (t) => [index("agent_tool_calls_org_at_idx").on(t.organizationId, t.at)],
+);
 
 /** Same content + same provider/model = same insight: never pay for analyzing a file twice. */
 export const aiInsightCache = pgTable(

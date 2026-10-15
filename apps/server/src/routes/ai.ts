@@ -41,6 +41,8 @@ const SettingsBody = z.object({
     confidence: z.number().min(0).max(1),
   }),
   aiMonthlyFileBudget: z.number().int().min(0).max(1_000_000),
+  /** Small agent/MCP plans that may run without approval (0 = never). */
+  autoRun: z.object({ maxFiles: z.number().int().min(0).max(1000), allowMcp: z.boolean() }).optional(),
   clearSecrets: z.array(z.enum(AI_SECRET_FIELDS)).default([]),
 });
 

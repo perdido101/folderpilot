@@ -43,6 +43,13 @@
       "when": 1792047207223,
       "tag": "0005_rules_phase4",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792051528482,
+      "tag": "0006_agent",
+      "breakpoints": true
     }
   ]
 }

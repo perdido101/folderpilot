@@ -474,3 +474,22 @@ describe("auto rules", () => {
     await expect(engine.autoApprove(disabled)).rejects.toThrow(/enabled rule/);
   });
 });
+
+describe("auto-run for small agent plans", () => {
+  it("runs only agent plans under the admin's threshold, never rule changes or trash", async () => {
+    const small = await engine.createPlan({ spaceId: 1, source: "agent", actor: "agent:u1", summary: "x", steps: [{ fileId: id("Downloads/a.pdf"), action: "tag", to: "t" }] });
+    expect(await engine.autoApproveSmall(small, { maxFiles: 0, allowMcp: false })).toBe(false);
+    expect(await engine.autoApproveSmall(small, { maxFiles: 1, allowMcp: false })).toBe(true);
+    expect((await store.getPlan(small))!.status).toBe("approved");
+
+    const two = await engine.createPlan({ spaceId: 1, source: "agent", actor: "agent:u1", summary: "x", steps: [{ fileId: id("Downloads/a.pdf"), action: "tag", to: "a" }, { fileId: id("Downloads/b.pdf"), action: "tag", to: "a" }] });
+    expect(await engine.autoApproveSmall(two, { maxFiles: 1, allowMcp: false })).toBe(false);
+    const rule = await engine.createPlan({ spaceId: 1, source: "agent", actor: "agent:u1", summary: "x", steps: [{ action: "rule_create", to: "{}" }] });
+    expect(await engine.autoApproveSmall(rule, { maxFiles: 10, allowMcp: false })).toBe(false);
+    const mcp = await engine.createPlan({ spaceId: 1, source: "mcp", actor: "mcp:c:u1", summary: "x", steps: [{ fileId: id("Downloads/b.pdf"), action: "tag", to: "m" }] });
+    expect(await engine.autoApproveSmall(mcp, { maxFiles: 10, allowMcp: false })).toBe(false);
+    expect(await engine.autoApproveSmall(mcp, { maxFiles: 10, allowMcp: true })).toBe(true);
+    const user = await engine.createPlan({ spaceId: 1, source: "user", actor: "user:u1", summary: "x", steps: [{ fileId: id("Downloads/b.pdf"), action: "tag", to: "u" }] });
+    expect(await engine.autoApproveSmall(user, { maxFiles: 10, allowMcp: true })).toBe(false);
+  });
+});

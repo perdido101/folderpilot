@@ -55,3 +55,11 @@ export function shouldSkip(name: string): boolean {
   if (name.startsWith(".") || name.startsWith("~$")) return true;
   return SYSTEM_NAMES.has(name.toLowerCase());
 }
+
+/** Extensions of a kind ("other" = none listed: callers treat it as "not any known kind"). */
+export function extsOfKind(kind: FileKind): readonly string[] {
+  return kind === "other" ? [] : KINDS[kind];
+}
+
+/** Every extension FolderPilot assigns a kind to. */
+export const KNOWN_EXTS: readonly string[] = [...BY_EXT.keys()];

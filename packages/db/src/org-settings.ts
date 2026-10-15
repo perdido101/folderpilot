@@ -3,7 +3,7 @@
  * are stored AES-256-GCM encrypted (bound to the org id) and never returned to the browser.
  */
 import { AI_SECRET_FIELDS, withDefaults, type AISettings } from "@folderpilot/ai";
-import { DEFAULT_THRESHOLDS, type Thresholds } from "@folderpilot/core";
+import { DEFAULT_THRESHOLDS, type AutoRunSettings, type Thresholds } from "@folderpilot/core";
 import { eq } from "drizzle-orm";
 import type { Database } from "./client";
 import { decrypt, encrypt } from "./crypto";
@@ -15,7 +15,11 @@ export interface OrgSettings {
   ai: AISettings;
   thresholds: Thresholds;
   aiMonthlyFileBudget: number;
+  /** Small agent/MCP plans that may run without approval (default: none). */
+  autoRun: AutoRunSettings;
 }
+
+export const DEFAULT_AUTO_RUN: AutoRunSettings = { maxFiles: 0, allowMcp: false };
 
 /** What the browser may see: secrets replaced by whether they are set. */
 export interface PublicOrgSettings extends OrgSettings {
@@ -57,6 +61,7 @@ export async function loadOrgSettings(db: Database, orgId: string, key: Buffer):
     ai,
     thresholds: { ...DEFAULT_THRESHOLDS, ...row?.thresholds },
     aiMonthlyFileBudget: row?.aiMonthlyFileBudget ?? DEFAULT_AI_MONTHLY_FILE_BUDGET,
+    autoRun: { ...DEFAULT_AUTO_RUN, ...row?.autoRun },
   };
 }
 
@@ -74,7 +79,7 @@ export async function saveOrgSettings(
   db: Database,
   orgId: string,
   key: Buffer,
-  next: { ai: AISettings; thresholds: Thresholds; aiMonthlyFileBudget: number },
+  next: { ai: AISettings; thresholds: Thresholds; aiMonthlyFileBudget: number; autoRun?: AutoRunSettings },
   clearSecrets: SecretField[] = [],
 ): Promise<OrgSettings> {
   const current = await loadOrgSettings(db, orgId, key);
@@ -83,7 +88,7 @@ export async function saveOrgSettings(
   const merged: Partial<Record<SecretField, string>> = { ...existing, ...incoming };
   for (const f of clearSecrets) delete merged[f];
   const aiSecretsEncrypted = Object.keys(merged).length ? encrypt(JSON.stringify(merged), key, `org-ai:${orgId}`) : null;
-  const values = { ai: plain as unknown as Record<string, unknown>, aiSecretsEncrypted, thresholds: next.thresholds, aiMonthlyFileBudget: next.aiMonthlyFileBudget, updatedAt: new Date() };
+  const values = { ai: plain as unknown as Record<string, unknown>, aiSecretsEncrypted, thresholds: next.thresholds, aiMonthlyFileBudget: next.aiMonthlyFileBudget, autoRun: next.autoRun ?? current.autoRun, updatedAt: new Date() };
   await db
     .insert(orgSettings)
     .values({ organizationId: orgId, ...values })

@@ -37,3 +37,4 @@ export * from "./prompts";
 export { AnthropicProvider, FolderPilotProvider, OllamaProvider, OpenAICompatibleProvider };
 export type { AnthropicClientLike, AnthropicProviderOptions } from "./anthropic";
 export * from "./rules";
+export * from "./agent";

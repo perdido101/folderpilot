@@ -11,6 +11,7 @@ import { meRoutes } from "./routes/me";
 import { aiRoutes } from "./routes/ai";
 import { orgRoutes } from "./routes/orgs";
 import { ruleRoutes } from "./routes/rules";
+import { agentRoutes } from "./routes/agent";
 import { spaceFileRoutes } from "./routes/space-files";
 import { systemRoutes } from "./routes/system";
 
@@ -47,6 +48,7 @@ export function createApp(deps: Deps) {
   app.route("/api/orgs", aiRoutes(deps));
   app.route("/api/orgs", spaceFileRoutes(deps));
   app.route("/api/orgs", ruleRoutes(deps));
+  app.route("/api/orgs", agentRoutes(deps));
 
   app.notFound((c) => c.json({ error: "not_found", message: "Not found." }, 404));
   app.onError((err, c) => {

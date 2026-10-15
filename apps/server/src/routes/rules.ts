@@ -90,6 +90,34 @@ const parse = async <T>(schema: z.ZodType<T>, req: { json(): Promise<unknown> })
 };
 const isUuid = (s: string) => z.string().uuid().safeParse(s).success;
 
+/** Plans with their steps (file names joined), as the browser shows them. */
+export async function publicPlans(deps: Deps, orgId: string, planRows: (typeof plans.$inferSelect)[]) {
+  const steps = planRows.length
+    ? await deps.db
+        .select({ step: planSteps, name: files.name })
+        .from(planSteps)
+        .leftJoin(files, eq(files.id, planSteps.fileId))
+        .where(and(eq(planSteps.organizationId, orgId), inArray(planSteps.planId, planRows.map((p) => p.id))))
+        .orderBy(planSteps.seq)
+    : [];
+  return planRows.map((p) => {
+    const own = steps.filter((s) => s.step.planId === p.id);
+    return {
+      id: p.id,
+      spaceId: p.spaceId,
+      source: p.source,
+      actor: p.actor,
+      summary: p.summary,
+      reason: p.reason,
+      status: p.status,
+      createdAt: p.createdAt.getTime(),
+      batchId: p.batchId,
+      fileCount: new Set(own.flatMap((s) => (s.step.fileId ? [s.step.fileId] : []))).size,
+      steps: own.slice(0, 500).map(({ step: s, name }) => ({ seq: s.seq, action: s.action, fileId: s.fileId, name: name ?? "", before: s.before ?? "", after: s.after ?? "", status: s.status, error: s.error })),
+    };
+  });
+}
+
 export function ruleRoutes(deps: Deps) {
   const app = new Hono<AppEnv>();
   app.use("/:orgId/*", requireOrg(deps));
@@ -274,30 +302,17 @@ export function ruleRoutes(deps: Deps) {
       .where(and(eq(plans.organizationId, orgId), eq(plans.spaceId, space.id), eq(plans.status, status)))
       .orderBy(desc(plans.createdAt))
       .limit(50);
-    const steps = planRows.length
-      ? await deps.db
-          .select({ step: planSteps, name: files.name })
-          .from(planSteps)
-          .leftJoin(files, eq(files.id, planSteps.fileId))
-          .where(and(eq(planSteps.organizationId, orgId), inArray(planSteps.planId, planRows.map((p) => p.id))))
-          .orderBy(planSteps.seq)
-      : [];
-    return c.json({
-      plans: planRows.map((p) => {
-        const own = steps.filter((s) => s.step.planId === p.id);
-        return {
-          id: p.id,
-          source: p.source,
-          actor: p.actor,
-          summary: p.summary,
-          reason: p.reason,
-          status: p.status,
-          createdAt: p.createdAt.getTime(),
-          fileCount: new Set(own.flatMap((s) => (s.step.fileId ? [s.step.fileId] : []))).size,
-          steps: own.slice(0, 500).map(({ step: s, name }) => ({ seq: s.seq, action: s.action, fileId: s.fileId, name: name ?? "", before: s.before ?? "", after: s.after ?? "", status: s.status })),
-        };
-      }),
-    });
+    return c.json({ plans: await publicPlans(deps, orgId, planRows) });
+  });
+
+  /** One plan (any status), e.g. a Plan Card in the agent chat. */
+  app.get("/:orgId/plans/:planId", requirePermission("file", "view"), async (c) => {
+    const orgId = c.get("org").id;
+    const planId = c.req.param("planId");
+    const row = isUuid(planId) ? await scoped(deps.db, orgId).first(plans, eq(plans.id, planId)) : undefined;
+    if (!row) throw new HTTPException(404, { message: "Plan not found." });
+    const [plan] = await publicPlans(deps, orgId, [row]);
+    return c.json({ plan });
   });
 
   async function planContext(orgId: string, planId: string) {
