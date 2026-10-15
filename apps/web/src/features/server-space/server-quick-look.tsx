@@ -21,12 +21,14 @@ function previewKind(file: SpaceFile): "image" | "pdf" | "video" | "audio" | "te
   if (canThumbnail(file.ext) && file.ext !== "svg") return "image";
   if (file.ext === "pdf") return "pdf";
   if (isTextPreviewable(file.ext) && !["html", "htm", "js", "css"].includes(file.ext)) return "text";
+  // Google Docs/Sheets/Slides arrive as their text export.
+  if (["gdoc", "gsheet", "gslides"].includes(file.ext)) return "text";
   const kind = kindOf(file.ext);
   return kind === "video" ? "video" : kind === "audio" ? "audio" : "none";
 }
 
 export function ServerQuickLook({ orgId, file, spaceName, onClose, onShowInSpace }: { orgId: string; file: SpaceFile | null; spaceName?: string; onClose: () => void; onShowInSpace?: (file: SpaceFile) => void }) {
-  const { t } = useTranslation(["search", "common"]);
+  const { t } = useTranslation(["search", "common", "connect"]);
   const [preview, setPreview] = useState<Preview | null>(null);
 
   useEffect(() => {
@@ -97,6 +99,13 @@ export function ServerQuickLook({ orgId, file, spaceName, onClose, onShowInSpace
                   <Download /> {t("preview.download")}
                 </a>
               </Button>
+              {file.webUrl && (
+                <Button variant="outline" asChild>
+                  <a href={file.webUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink /> {t("connect:space.openInDrive")}
+                  </a>
+                </Button>
+              )}
               {onShowInSpace && (
                 <Button onClick={() => onShowInSpace(file)}>
                   <ExternalLink /> {t("preview.showInSpace")}

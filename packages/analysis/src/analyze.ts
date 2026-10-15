@@ -44,7 +44,7 @@ export const FULL_HASH_LIMIT = 256 * 1024 * 1024;
 const PARTIAL = 4 * 1024 * 1024;
 export const TEXT_LIMIT = 4000;
 export const DECODABLE_IMAGES = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "tif", "tiff"];
-export const TEXT_EXTS = ["txt", "md", "csv", "tsv", "json", "xml", "log", "ini", "yml", "yaml", "html", "htm", "rtf"];
+export const TEXT_EXTS = ["txt", "md", "csv", "tsv", "gdoc", "gsheet", "gslides", "json", "xml", "log", "ini", "yml", "yaml", "html", "htm", "rtf"];
 const EXIF_EXTS = ["jpg", "jpeg", "heic", "heif", "tif", "tiff", "png", "webp", "avif"];
 const EXIF_PICK = ["Make", "Model", "DateTimeOriginal", "LensModel", "latitude", "longitude", "Software"];
 

@@ -41,6 +41,7 @@ export function searchRoutes(deps: Deps) {
     const orgSpaces = await scoped(deps.db, orgId).select(spaces);
     if (p.spaceId && !orgSpaces.some((s) => s.id === p.spaceId)) throw new HTTPException(404, { message: "Space not found." });
     const names = new Map(orgSpaces.map((s) => [s.id, s.name]));
+    const adapters = new Map(orgSpaces.map((s) => [s.id, s.adapterId]));
     const embedder = p.semantic === "1" ? deps.ai.embedderFor((await loadOrgSettings(deps.db, orgId, deps.encryptionKey)).ai) : null;
     const res = await searchFiles(deps.db, orgId, {
       q: p.q,
@@ -61,7 +62,7 @@ export function searchRoutes(deps: Deps) {
     });
     if (res.semanticError) deps.log.warn({ orgId, err: res.semanticError }, "search by meaning failed; words only");
     return c.json({
-      results: res.hits.map((h) => ({ file: publicFile(h.file), spaceName: names.get(h.file.spaceId) ?? "", score: h.score, matchedBy: h.sources, snippet: h.snippet })),
+      results: res.hits.map((h) => ({ file: publicFile(h.file, adapters.get(h.file.spaceId)), spaceName: names.get(h.file.spaceId) ?? "", score: h.score, matchedBy: h.sources, snippet: h.snippet })),
       total: res.total,
       semantic: p.semantic === "0" ? "off" : res.semantic,
       chips: res.parsed.chips,

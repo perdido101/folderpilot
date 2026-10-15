@@ -27,6 +27,7 @@
     "title": "Connect a source",
     "subtitle": "Choose where your files live. FolderPilot organizes them in place.",
     "needsSetup": "needs setup by an admin (see docs/SETUP.md)",
+    "adminOnly": "only owners and admins can connect sources",
     "sources": {
       "device": {
         "title": "Folder on this computer",
@@ -38,7 +39,7 @@
       },
       "gdrive": {
         "title": "Google Drive",
-        "description": "Organize files where they already are in Google Drive."
+        "description": "Organize files where they already are in Google Drive. You'll sign in with Google and pick a folder."
       },
       "onedrive": {
         "title": "OneDrive & SharePoint",
@@ -71,7 +72,9 @@
     "empty": "No spaces yet — connect a source",
     "deviceHint": "Folder on this computer (Private mode)",
     "readOnly": "Read-only",
-    "serverHint": "Connected source (browsing arrives with its adapter)"
+    "serverHint": "A space on the FolderPilot server",
+    "needsReconnect": "Needs to be reconnected",
+    "needsFolder": "Choose a folder to finish connecting"
   },
   "nav": {
     "label": "Sections",

@@ -281,6 +281,9 @@ importers:
 
   e2e:
     devDependencies:
+      '@folderpilot/adapters':
+        specifier: workspace:*
+        version: link:../packages/adapters
       '@folderpilot/db':
         specifier: workspace:*
         version: link:../packages/db

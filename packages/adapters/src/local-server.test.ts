@@ -56,6 +56,7 @@ describe("adapterForSpace", () => {
     expect(adapterForSpace({ adapterId: "local-server", rootRef: dir }, { devSampleDir: dir, production: false })).toBeInstanceOf(LocalServerAdapter);
     expect(() => adapterForSpace({ adapterId: "local-server", rootRef: outside }, { devSampleDir: dir, production: false })).toThrow(AdapterUnavailableError);
     expect(() => adapterForSpace({ adapterId: "local-server", rootRef: dir }, { devSampleDir: dir, production: true })).toThrow(/phase 9/);
-    expect(() => adapterForSpace({ adapterId: "gdrive", rootRef: "x" }, { production: false })).toThrow(/phase 8/);
+    expect(() => adapterForSpace({ adapterId: "gdrive", rootRef: "x" }, { production: false })).toThrow(/isn't configured/);
+    expect(() => adapterForSpace({ adapterId: "onedrive", rootRef: "x" }, { production: false })).toThrow(/phase 8/);
   });
 });

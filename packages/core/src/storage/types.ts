@@ -19,6 +19,8 @@ export interface FileEntry {
   /** Changes whenever the content or metadata changes (etag, rev, or size+mtime). Used for conflict checks. */
   version: string;
   mime?: string;
+  /** Link to the file in its provider's own app (e.g. Google Drive), when there is one. */
+  webUrl?: string;
 }
 
 export interface Page<T> {
@@ -67,7 +69,11 @@ export interface StorageAdapter {
   trash(ref: FileRef, opts: WriteOptions): Promise<FileEntry>;
   /** Put a trashed entry back at `originalPath` (or next to it if the name is taken). */
   restore(ref: FileRef, originalPath: string): Promise<FileEntry>;
-  changes(cursor?: string): Promise<{ entries: ChangeEvent[]; cursor: string }>;
+  /**
+   * Without a cursor: everything (a full listing, `complete` true or absent). With a cursor: only what changed since
+   * (`complete: false`), so the indexer must not treat missing files as gone.
+   */
+  changes(cursor?: string): Promise<{ entries: ChangeEvent[]; cursor: string; complete?: boolean }>;
   subscribe?(webhookUrl: string): Promise<Subscription>;
 }
 

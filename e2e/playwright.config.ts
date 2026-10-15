@@ -6,6 +6,8 @@ const ADMIN_DB = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "p
 const E2E_DB = Object.assign(new URL(ADMIN_DB), { pathname: "/folderpilot_e2e" }).toString();
 const SAMPLE_DIR = new URL("./.tmp/sample", import.meta.url).pathname;
 const MOCK_AI_PORT = 3199;
+/** Mock Google (OAuth + Drive API), served by support/services.ts. */
+const MOCK_GOOGLE = "http://127.0.0.1:3198";
 
 /** Shared by the API, the seed and the worker (same DB, encryption key and queue prefix). */
 const backendEnv = {
@@ -17,6 +19,12 @@ const backendEnv = {
   ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   FP_DEV_SAMPLE_DIR: SAMPLE_DIR,
   FP_QUEUE_PREFIX: "fpe2e",
+  GOOGLE_CLIENT_ID: "e2e-client",
+  GOOGLE_CLIENT_SECRET: "e2e-secret",
+  GOOGLE_OAUTH_URL: `${MOCK_GOOGLE}/o/oauth2/v2/auth`,
+  GOOGLE_TOKEN_URL: `${MOCK_GOOGLE}/token`,
+  GOOGLE_REVOKE_URL: `${MOCK_GOOGLE}/revoke`,
+  GOOGLE_DRIVE_API: `${MOCK_GOOGLE}/drive/v3`,
 };
 
 export default defineConfig({

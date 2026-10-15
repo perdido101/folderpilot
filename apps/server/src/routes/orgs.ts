@@ -15,6 +15,9 @@ export function orgRoutes(deps: Deps) {
       rows.map(({ credentialsEncrypted, syncCursor: _cursor, ...rest }) => ({
         ...rest,
         connected: credentialsEncrypted !== null || rest.adapterId === "local-browser" || rest.adapterId === "local-server",
+        /** Connected but no folder chosen yet (Google Drive right after connecting). */
+        needsFolder: rest.mode === "connect" && !rest.rootRef,
+        needsReconnect: rest.settings.needsReconnect ?? null,
       })),
     );
   });

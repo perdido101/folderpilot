@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   AppWindow,
   CheckCheck,
+  CircleAlert,
   Clock,
   Copy,
   Files,
@@ -96,6 +97,7 @@ export function Sidebar() {
   const { t } = useTranslation(["shell", "common"]);
   const mode = useMode((s) => s.mode);
   const org = useActiveOrg();
+  const navigate = useNavigate();
   const serverSpaces = useServerSpaces(mode === "account" ? org?.id : undefined).data ?? [];
   const activeRoot = useActiveRoot();
   const activeRootId = activeRoot?.id ?? null;
@@ -168,12 +170,17 @@ export function Sidebar() {
           {serverSpaces.map((s) => (
             <button
               key={s.id}
-              onClick={() => setActiveServerSpaceId(s.id)}
+              onClick={() => {
+                setActiveServerSpaceId(s.id);
+                // A Drive connected a moment ago still needs its folder.
+                if (s.needsFolder) navigate(`/connect/gdrive/${s.id}`);
+              }}
               className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm transition-colors hover:bg-surface-2", s.id === activeServerSpaceId && "bg-surface-2 font-medium")}
               title={t("spaces.serverHint")}
             >
               <HardDrive className="size-4 shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{s.name}</span>
+              {(s.needsReconnect || s.needsFolder) && <CircleAlert className="size-3.5 shrink-0 text-warning" aria-label={s.needsReconnect ? t("spaces.needsReconnect") : t("spaces.needsFolder")} />}
               <span className="rounded-full border px-1.5 text-[10px] text-muted">{t(`modes.${s.mode}`)}</span>
             </button>
           ))}

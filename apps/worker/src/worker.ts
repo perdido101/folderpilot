@@ -2,7 +2,8 @@ import { hostname } from "node:os";
 import { Queue, UnrecoverableError, Worker, type Job, type JobsOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { QUEUES, type AIJob, type AnalysisJob, type EmbeddingsJob, type FlagsJob, type IndexJob, type RulesJob } from "@folderpilot/core";
-import { aiOne, analyzeOne, indexSpace, PermanentJobError, recomputeSpaceFlags, type PipelineDeps } from "./pipeline/processors";
+import { aiOne, analyzeOne, connectedSpacesToSync, indexSpace, PermanentJobError, recomputeSpaceFlags, type PipelineDeps } from "./pipeline/processors";
+import { markNeedsReconnect, type Database } from "@folderpilot/db";
 import { rulesForSpace, rulesTick } from "./pipeline/rules";
 import { embedSpace } from "./pipeline/embeddings";
 import { systemProcessor } from "./processors";
@@ -27,6 +28,8 @@ export interface WorkerOptions {
   rulesTickEveryMs?: number;
   /** Debounce before a space's rules run after files change (default 2 s). */
   rulesDelayMs?: number;
+  /** How often connected sources (Google Drive…) are checked for changes (default 5 minutes). */
+  syncEveryMs?: number;
 }
 
 const RETRY: JobsOptions = { attempts: 3, backoff: { type: "exponential", delay: 2000 }, removeOnComplete: true, removeOnFail: 500 };
@@ -43,8 +46,23 @@ const permanent =
     }
   };
 
+/** A provider stopped accepting our credentials: mark the space "needs reconnect" and don't retry. */
+function guardAuth<T, R>(db: Database, fn: (data: T) => Promise<R>) {
+  return async (data: T): Promise<R> => {
+    try {
+      return await fn(data);
+    } catch (err) {
+      if (err instanceof Error && err.name === "DriveAuthError" && data && typeof data === "object" && "spaceId" in data) {
+        await markNeedsReconnect(db, String((data as { spaceId: string }).spaceId), err.message);
+        throw new PermanentJobError(err.message);
+      }
+      throw err;
+    }
+  };
+}
+
 /** Start consumers and the heartbeat schedule. BullMQ needs maxRetriesPerRequest = null. */
-export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = () => {}, pipeline, concurrency = {}, prefix, rulesTickEveryMs = 15 * 60_000, rulesDelayMs = 2000 }: WorkerOptions): Promise<WorkerRuntime> {
+export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = () => {}, pipeline, concurrency = {}, prefix, rulesTickEveryMs = 15 * 60_000, rulesDelayMs = 2000, syncEveryMs = 5 * 60_000 }: WorkerOptions): Promise<WorkerRuntime> {
   const workerId = `${hostname()}:${process.pid}`;
   const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
   const base = { connection, ...(prefix ? { prefix } : {}) };
@@ -86,17 +104,32 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
       },
     };
     workers.push(
-      new Worker<IndexJob>(QUEUES.indexing, permanent((d: IndexJob) => indexSpace(deps, d)), { ...base, concurrency: 1 }),
+      new Worker<IndexJob | Record<string, never>>(
+        QUEUES.indexing,
+        permanent(
+          guardAuth(pipeline.db, async (d: IndexJob | Record<string, never>) => {
+            if (!("spaceId" in d)) {
+              // Sync tick: check every connected space for changes (incremental, cheap when nothing changed).
+              const due = await connectedSpacesToSync(pipeline.db);
+              for (const s of due) await queues.indexing.add("index", { orgId: s.orgId, spaceId: s.spaceId, withAI: true } satisfies IndexJob, { ...RETRY, jobId: `sync_${s.spaceId}` });
+              return { queued: due.length };
+            }
+            return indexSpace(deps, d as IndexJob);
+          }),
+        ),
+        { ...base, concurrency: 1 },
+      ),
       new Worker<AnalysisJob | FlagsJob>(
         QUEUES.analysis,
         async (job) => {
           try {
             if (job.name === "flags") return await recomputeSpaceFlags(deps, job.data as FlagsJob);
-            const data = job.data as AnalysisJob;
-            const result = await analyzeOne(deps, data);
-            // Without AI the file is ready for rules now; otherwise rules run after its AI insight.
-            if (!data.withAI) await fileReady(data.orgId, data.spaceId);
-            return result;
+            return await guardAuth(pipeline.db, async (data: AnalysisJob) => {
+              const result = await analyzeOne(deps, data);
+              // Without AI the file is ready for rules now; otherwise rules run after its AI insight.
+              if (!data.withAI) await fileReady(data.orgId, data.spaceId);
+              return result;
+            })(job.data as AnalysisJob);
           } catch (err) {
             if (err instanceof PermanentJobError) throw new UnrecoverableError(err.message);
             throw err;
@@ -106,14 +139,14 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
       ),
       new Worker<AIJob>(
         QUEUES.ai,
-        permanent(async (d: AIJob) => {
+        permanent(guardAuth(pipeline.db, async (d: AIJob) => {
           try {
             return await aiOne(deps, d);
           } finally {
             // Rules run whether the AI answered, was skipped or failed for good (budget); a retry re-queues anyway.
             await fileReady(d.orgId, d.spaceId);
           }
-        }),
+        })),
         { ...base, concurrency: concurrency.ai ?? 2 },
       ),
       // One at a time so two runs never create the same pending plan.
@@ -128,6 +161,7 @@ export async function startWorker({ redisUrl, heartbeatEveryMs = 60_000, log = (
         { ...base, concurrency: 1 },
       ),
     );
+    await queues.indexing.upsertJobScheduler("sync-tick", { every: syncEveryMs }, { name: "sync", data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } });
     await queues.rules.upsertJobScheduler("rules-tick", { every: rulesTickEveryMs }, { name: "tick", data: {}, opts: { removeOnComplete: 100, removeOnFail: 100 } });
   }
 

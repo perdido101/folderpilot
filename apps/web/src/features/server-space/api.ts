@@ -33,6 +33,8 @@ export interface SpaceFile {
   analyzed: boolean;
   aiAnalyzed: boolean;
   flagReason: string | null;
+  /** Opens the file in its provider (Google Drive), when there is one. */
+  webUrl?: string | null;
 }
 
 export interface SpaceStatus {

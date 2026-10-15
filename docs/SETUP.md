@@ -6,7 +6,7 @@ This guide gets FolderPilot running locally and walks you through connecting eve
 
 | Integration | Turns on | Needed from phase |
 |---|---|---|
-| [Google Cloud OAuth](#google) | “Continue with Google”, Google Drive (Connect mode) | sign-in now · Drive in phase 8 |
+| [Google Cloud OAuth](#google) | “Continue with Google”, Google Drive (Connect mode) | sign-in and Google Drive now |
 | [Microsoft Entra app](#microsoft) | “Continue with Microsoft”, OneDrive/SharePoint | sign-in now · OneDrive in phase 8 |
 | [Dropbox app](#dropbox) | Dropbox (Connect mode) | phase 8 |
 | [S3-compatible bucket](#storage) (R2 / B2 / Hetzner) | FolderPilot Cloud storage | phase 7 |
@@ -43,26 +43,64 @@ Checks: `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pn
 
 ---
 
-## <a id="google"></a>2. Google Cloud OAuth (sign-in + Google Drive)
+## <a id="google"></a>2. Google: sign-in and your own Google Drive
 
-1. Go to <https://console.cloud.google.com/> → create a project (e.g. “FolderPilot”).
-2. **APIs & Services → Library**: enable **Google Drive API** (needed from phase 8; harmless now).
-3. **APIs & Services → OAuth consent screen**:
-   - User type **External** (or **Internal** for a Google Workspace org only).
-   - App name “FolderPilot”, support email, your domain.
-   - Scopes: `openid`, `email`, `profile`. Drive scopes are requested later, only when someone connects Drive
-     (least privilege: `https://www.googleapis.com/auth/drive` is needed to move/rename files in place).
-   - While “Testing”, add your own Google account under **Test users**.
-4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
-   - Application type **Web application**.
-   - Authorized JavaScript origins: `http://localhost:5173` (and your production web URL).
-   - Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google` (and `https://<your-api>/api/auth/callback/google`).
-5. Copy the values into `.env`:
+This section lets you **test FolderPilot on your own Google Drive**. It takes about 10 minutes and costs nothing.
+Your app stays in Google's “Testing” mode, so only the accounts you list can use it.
+
+### What happens when you connect Drive
+- You sign in with Google and allow FolderPilot to **see, edit, create and move files in your Drive** (the `drive`
+  scope; moving and renaming files in place needs it).
+- You pick **one folder** (we recommend a test folder first) or all of My Drive.
+- FolderPilot stores file names, folders, sizes, dates and its own analysis (category, tags, caption), plus your Google
+  access token **encrypted** (AES-256-GCM). It **doesn't keep copies of your files**; it reads small previews or the first
+  pages of text only to analyze them.
+- Nothing changes in your Drive until **you approve a plan** (or a rule you set to “auto” runs). Every change is in the
+  Audit Log and can be undone. “Trash” uses Drive's own trash, which Drive keeps for 30 days.
+- **Disconnect** removes the space from FolderPilot and gives up the access. It never touches your Drive.
+- Changes you make in Drive itself are picked up every 5 minutes (`FP_SYNC_INTERVAL_SEC`), or right away with
+  **Scan & analyze**.
+
+### Steps
+1. Open <https://console.cloud.google.com/> and sign in with the Google account whose Drive you want to use.
+   Top bar → project picker → **New project** → name it “FolderPilot” → **Create**, then select it.
+2. **APIs & Services → Library** → search **Google Drive API** → **Enable**.
+3. **APIs & Services → OAuth consent screen** (in newer consoles: **Google Auth Platform → Branding / Audience / Data access**):
+   - **Get started** → App name “FolderPilot (test)”, your email as support and developer contact → **Create**.
+   - **Audience**: User type **External**, publishing status **Testing**. Under **Test users** → **Add users** → your
+     own Gmail address (and anyone else who will try it).
+   - **Data access** → **Add or remove scopes** → tick `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`
+     and `https://www.googleapis.com/auth/drive` → **Update** → **Save**.
+4. **APIs & Services → Credentials** (or **Clients**) → **Create credentials → OAuth client ID**:
+   - Application type **Web application**, name “FolderPilot local”.
+   - **Authorized JavaScript origins**: `http://localhost:5173`
+   - **Authorized redirect URIs** — add both:
+     - `http://localhost:3000/api/auth/callback/google` (sign in with Google)
+     - `http://localhost:3000/api/connect/gdrive/callback` (connect Google Drive)
+   - **Create**, then copy the **Client ID** and **Client secret**.
+5. Put them in `.env` at the repo root and restart `pnpm dev`:
    ```env
    GOOGLE_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-...
    ```
-6. Restart `pnpm dev`. “Continue with Google” now appears on the sign-in page.
+6. In FolderPilot (signed in as an owner or admin): **New → Connect a source… → Google Drive**.
+   - Google shows “Google hasn't verified this app” — expected for your own test app: **Continue**.
+   - Tick the box to allow Drive access → **Continue**.
+   - Back in FolderPilot, open the folder you want (e.g. a “FolderPilot test” folder with a few copies of documents and
+     photos), choose **Use “…”**, then wait for the scan. Files appear and get analyzed (set up an AI in
+     **Settings → AI** first — see [6b](#org-ai) or [7](#ollama) — or only local analysis runs).
+7. Try it: make a rule (e.g. *category is Invoices → move to `Invoices/{year}`*), **Run all…**, approve the plan in
+   **Pending Approvals**, check the file moved in drive.google.com, then **Undo** it from the **Audit Log**.
+
+### Good to know
+- **Testing mode tokens last 7 days.** After that the space shows “can't reach this Google Drive” with a **Reconnect**
+  button; reconnecting keeps the space and its analysis.
+- To use it with people outside your test-user list, Google requires verification of the `drive` scope (a security
+  review). That is for later, at deploy time.
+- Revoke FolderPilot's access any time at <https://myaccount.google.com/permissions> (FolderPilot then asks you to reconnect).
+- Production: add `https://<your-web>` as a JavaScript origin and `https://<your-api>/api/auth/callback/google` plus
+  `https://<your-api>/api/connect/gdrive/callback` as redirect URIs, and set `APP_URL` / `API_URL`.
+- Without `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, Google sign-in and Drive stay hidden (“needs setup”).
 
 ## <a id="microsoft"></a>3. Microsoft Entra ID app (sign-in + OneDrive/SharePoint)
 

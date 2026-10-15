@@ -23,7 +23,13 @@ const CONTENT_TYPES: Record<string, string> = {
 export const contentTypeOf = (ext: string) => CONTENT_TYPES[ext.toLowerCase()] ?? "application/octet-stream";
 
 /** What the browser needs about a file (no provider internals). */
-export function publicFile(f: FileRow) {
+/** A link to the file in its provider's own UI (Google Drive), when there is one. */
+export function providerWebUrl(adapterId: string | undefined, providerRef: string): string | null {
+  if (adapterId === "gdrive") return `https://drive.google.com/open?id=${encodeURIComponent(providerRef)}`;
+  return null;
+}
+
+export function publicFile(f: FileRow, adapterId?: string) {
   return {
     id: f.id,
     spaceId: f.spaceId,
@@ -50,6 +56,7 @@ export function publicFile(f: FileRow) {
     analyzed: f.analyzedAt !== null,
     aiAnalyzed: f.aiAnalyzedAt !== null,
     flagReason: f.flagReason,
+    webUrl: providerWebUrl(adapterId, f.providerRef),
   };
 }
 
@@ -105,7 +112,7 @@ export function spaceFileRoutes(deps: Deps) {
     const where = s.where(files, and(...conds) as SQL);
     const rows = await deps.db.select().from(files).where(where).orderBy(asc(files.path)).limit(limit).offset(offset);
     const [total] = await deps.db.select({ n: count() }).from(files).where(where);
-    return c.json({ files: rows.map(publicFile), total: total?.n ?? 0 });
+    return c.json({ files: rows.map((f) => publicFile(f, space.adapterId)), total: total?.n ?? 0 });
   });
 
   /** Progress and counts for the space header (polled while a scan runs). */
@@ -121,7 +128,8 @@ export function spaceFileRoutes(deps: Deps) {
     } catch (err) {
       adapter = { readOnly: true, error: err instanceof Error ? err.message : String(err) };
     }
-    const queue = deps.queues ? await deps.queues.indexing.getJobCounts("active", "waiting", "delayed").catch(() => null) : null;
+    // Only this space's scans count (the queue also holds other spaces' scans and the periodic sync timer).
+    const scanJobs = deps.queues ? await deps.queues.indexing.getJobs(["active", "waiting", "delayed", "prioritized"], 0, 500).catch(() => null) : null;
     return c.json({
       total: await n(),
       analyzed: await n(isNotNull(files.analyzedAt)),
@@ -129,8 +137,8 @@ export function spaceFileRoutes(deps: Deps) {
       pendingAnalysis: await n(isNull(files.analyzedAt)),
       needsReview: await n(eq(files.status, "needs_review")),
       flagged: await n(sql`cardinality(${files.flags}) > 0`),
-      lastScanAt: space.syncCursor ? Number(space.syncCursor) : null,
-      scanning: queue ? (queue.active ?? 0) + (queue.waiting ?? 0) + (queue.delayed ?? 0) > 0 : false,
+      lastScanAt: space.settings.lastScanAt ?? (space.syncCursor && /^\d{13}$/.test(space.syncCursor) ? Number(space.syncCursor) : null),
+      scanning: scanJobs ? scanJobs.some((j) => (j?.data as { spaceId?: string } | undefined)?.spaceId === space.id) : false,
       adapter,
     });
   });
@@ -145,8 +153,8 @@ export function spaceFileRoutes(deps: Deps) {
     const indexed = rows.map(toEngineFile);
     const groups = [...exactGroups(indexed), ...nearGroups(indexed, thresholds.nearDuplicateDistance)].map((g) => ({
       kind: g.kind,
-      keep: publicFile(byId.get(String(g.keep.id))!),
-      others: g.others.map((o) => publicFile(byId.get(String(o.id))!)),
+      keep: publicFile(byId.get(String(g.keep.id))!, space.adapterId),
+      others: g.others.map((o) => publicFile(byId.get(String(o.id))!, space.adapterId)),
     }));
     return c.json({ groups });
   });

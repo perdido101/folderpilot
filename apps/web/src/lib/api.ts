@@ -51,6 +51,13 @@ export interface ServerSpace {
   mode: "connect" | "cloud" | "private";
   adapterId: string;
   connected: boolean;
+  /** The folder this space organizes ("" until one is chosen for a connected drive). */
+  rootRef: string;
+  /** Connected, but no folder chosen yet (Google Drive right after connecting). */
+  needsFolder: boolean;
+  /** Why the provider stopped accepting our access (null = fine). */
+  needsReconnect: string | null;
+  settings: { account?: string; rootName?: string };
 }
 
 export interface Member {

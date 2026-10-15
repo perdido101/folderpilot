@@ -19,8 +19,9 @@ import actions from "./actions.json";
 import pages from "./pages.json";
 import spaces from "./spaces.json";
 import search from "./search.json";
+import connect from "./connect.json";
 
 /** English is the source of truth: every key must exist here first. */
-export const en = { common, shell, auth, admin, files, intake, cleanup, review, categories, rules, plans, audit, trash, settings, agent, palette, mini, actions, pages, spaces, search };
+export const en = { common, shell, auth, admin, files, intake, cleanup, review, categories, rules, plans, audit, trash, settings, agent, palette, mini, actions, pages, spaces, search, connect };
 
 export type Namespace = keyof typeof en;

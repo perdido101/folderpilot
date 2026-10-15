@@ -2,7 +2,9 @@ import { useTranslation } from "react-i18next";
 import { Cloud, HardDrive, Laptop, Server, type LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, cn } from "@folderpilot/ui";
 import { chooseFolder } from "@/lib/folder-source";
-import { useFeatures } from "@/hooks/use-me";
+import { can } from "@folderpilot/core";
+import { startGoogleDrive } from "@/features/connect/api";
+import { useActiveOrg, useFeatures } from "@/hooks/use-me";
 import { useIndexing } from "@/stores/indexing";
 import { useMode } from "@/stores/mode";
 
@@ -21,7 +23,7 @@ interface Source {
 const SOURCES: Source[] = [
   { key: "device", icon: Laptop, mode: "private" },
   { key: "cloud", icon: Cloud, mode: "cloud", phase: 7, feature: (f) => f.cloudStorage },
-  { key: "gdrive", icon: HardDrive, mode: "connect", phase: 8, feature: (f) => f.connect.gdrive },
+  { key: "gdrive", icon: HardDrive, mode: "connect", feature: (f) => f.connect.gdrive },
   { key: "onedrive", icon: HardDrive, mode: "connect", phase: 8, feature: (f) => f.connect.onedrive },
   { key: "dropbox", icon: HardDrive, mode: "connect", phase: 8, feature: (f) => f.connect.dropbox },
   { key: "server", icon: Server, mode: "private", phase: 9 },
@@ -33,6 +35,8 @@ export function ConnectSourceDialog({ open, onOpenChange }: { open: boolean; onO
   const connectFolder = useIndexing((s) => s.connectFolder);
   const features = useFeatures().data;
   const deviceOnly = useMode((s) => s.mode) === "device";
+  const org = useActiveOrg();
+  const canConnect = Boolean(org && can(org.role, "space", "create"));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,14 +45,19 @@ export function ConnectSourceDialog({ open, onOpenChange }: { open: boolean; onO
         <DialogDescription>{t("connect.subtitle")}</DialogDescription>
         <ul className="space-y-2">
           {SOURCES.filter((s) => !deviceOnly || s.key === "device").map((s) => {
-            const ready = s.phase === undefined;
             const configured = !s.feature || (features ? s.feature(features) : false);
+            // Available now, set up on this server, and (for sources shared with the org) allowed for this person.
+            const ready = s.phase === undefined && configured && (s.key === "device" || canConnect);
             const Icon = s.icon;
             return (
               <li key={s.key}>
                 <button
                   disabled={!ready}
                   onClick={async () => {
+                    if (s.key === "gdrive") {
+                      if (org) startGoogleDrive(org.id);
+                      return;
+                    }
                     const source = await chooseFolder();
                     if (!source) return;
                     onOpenChange(false);
@@ -65,8 +74,9 @@ export function ConnectSourceDialog({ open, onOpenChange }: { open: boolean; onO
                     <span className="block text-xs text-muted">{t(`connect.sources.${s.key}.description`)}</span>
                     {!ready && (
                       <span className="mt-1 block text-xs text-warning">
-                        {t("common:status.comingInPhase", { phase: s.phase })}
-                        {s.feature && !configured ? ` · ${t("connect.needsSetup")}` : ""}
+                        {[s.phase !== undefined ? t("common:status.comingInPhase", { phase: s.phase }) : null, s.feature && !configured ? t("connect.needsSetup") : null, s.phase === undefined && configured && !canConnect ? t("connect.adminOnly") : null]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     )}
                   </span>

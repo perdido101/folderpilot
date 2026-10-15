@@ -2,8 +2,8 @@ export type FileKind = "image" | "document" | "spreadsheet" | "video" | "audio" 
 
 const KINDS: Record<Exclude<FileKind, "other">, readonly string[]> = {
   image: ["jpg", "jpeg", "png", "gif", "webp", "bmp", "avif", "heic", "heif", "tif", "tiff", "svg", "ico"],
-  document: ["pdf", "doc", "docx", "odt", "rtf", "txt", "md", "pages", "ppt", "pptx", "odp", "key"],
-  spreadsheet: ["xls", "xlsx", "ods", "csv", "tsv", "numbers"],
+  document: ["pdf", "doc", "docx", "odt", "rtf", "txt", "md", "pages", "ppt", "pptx", "odp", "key", "gdoc", "gslides"],
+  spreadsheet: ["xls", "xlsx", "ods", "csv", "tsv", "numbers", "gsheet"],
   video: ["mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv"],
   audio: ["mp3", "wav", "m4a", "flac", "ogg", "aac", "wma"],
   archive: ["zip", "rar", "7z", "tar", "gz", "bz2", "xz"],

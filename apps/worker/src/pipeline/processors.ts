@@ -8,7 +8,7 @@ import type { AIProvider, AnalyzeContext, FileMeta } from "@folderpilot/ai";
 import { analyzeFile, computeFlags } from "@folderpilot/analysis";
 import { extOf, kindOf, matchesRule, type AIJob, type AnalysisJob, type FileFlag, type FlagsJob, type IndexJob, type StorageAdapter } from "@folderpilot/core";
 import { BudgetExceededError, describeMetered, files, loadOrgSettings, rules, scoped, spaces, toEngineFile, toRule, type Database } from "@folderpilot/db";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { aiThumbnail, nodeAnalyzeDeps } from "./node-analysis";
 
 export interface PipelineDeps {
@@ -44,7 +44,11 @@ async function readBlob(adapter: StorageAdapter, ref: { id: string }): Promise<B
   return new Response(await adapter.download(ref)).blob();
 }
 
-/** Scan the space and bring `files` up to date. Returns counts. */
+/**
+ * Bring `files` up to date with the space. A full listing (first scan, local folders, an expired cursor) adds, updates
+ * and forgets files; an incremental one (Google Drive's change feed) applies only what changed since the stored cursor.
+ * Moves and renames keep their analysis (same version); new content is analyzed again.
+ */
 export async function indexSpace(deps: PipelineDeps, job: IndexJob) {
   const { db } = deps;
   const space = await loadSpace(db, job.orgId, job.spaceId);
@@ -54,19 +58,34 @@ export async function indexSpace(deps: PipelineDeps, job: IndexJob) {
   const seen = new Set<string>();
   let added = 0;
   let changed = 0;
+  let removed = 0;
 
-  const { entries } = await adapter.changes();
-  for (const ev of entries) {
-    if (ev.type !== "upsert" || ev.entry.isFolder) continue;
+  const res = await adapter.changes(space.syncCursor ?? undefined);
+  const incremental = res.complete === false;
+  for (const ev of res.entries) {
+    if (ev.type === "removed") {
+      const prev = existing.get(ev.ref.id);
+      // Files FolderPilot trashed stay in the index (they can be restored); anything else is gone from the space.
+      if (prev && prev.status !== "trashed") {
+        await db.delete(files).where(s.where(files, eq(files.id, prev.id)));
+        existing.delete(ev.ref.id);
+        removed++;
+      }
+      continue;
+    }
+    if (ev.entry.isFolder) continue;
     const e = ev.entry;
     seen.add(e.ref.id);
     const prev = existing.get(e.ref.id);
     const ext = extOf(e.name);
     if (!prev) {
       await s.insert(files, { spaceId: space.id, providerRef: e.ref.id, path: e.path, name: e.name, ext, size: e.size, mtime: new Date(e.mtime), version: e.version, ...(e.mime ? { mime: e.mime } : {}) });
+      existing.set(e.ref.id, (await s.first(files, and(eq(files.spaceId, space.id), eq(files.providerRef, e.ref.id)) as SQL))!);
       added++;
-    } else if (prev.version !== e.version || prev.path !== e.path) {
+    } else if (prev.version !== e.version || prev.path !== e.path || (prev.status === "trashed" && incremental)) {
       const contentChanged = prev.version !== e.version;
+      // A file that reappears in the space (restored in the provider's own trash) is live again.
+      const reappeared = prev.status === "trashed" && incremental;
       await s.update(files, eq(files.id, prev.id), {
         path: e.path,
         name: e.name,
@@ -75,25 +94,37 @@ export async function indexSpace(deps: PipelineDeps, job: IndexJob) {
         mtime: new Date(e.mtime),
         version: e.version,
         updatedAt: new Date(),
+        ...(reappeared ? { status: prev.category ? "analyzed" : "indexed" } : {}),
         // New content: analysis and AI must run again.
-        ...(contentChanged ? { analyzedAt: null, aiAnalyzedAt: null, sha256: null, dhash: null, blurScore: null, brightness: null, width: null, height: null, exif: null, textExcerpt: null, status: prev.status === "trashed" ? "trashed" : "indexed" } : {}),
+        ...(contentChanged ? { analyzedAt: null, aiAnalyzedAt: null, sha256: null, dhash: null, blurScore: null, brightness: null, width: null, height: null, exif: null, textExcerpt: null, ...(reappeared || prev.status !== "trashed" ? { status: "indexed" as const } : {}) } : {}),
       });
       changed++;
     }
   }
-  const gone = [...existing.values()].filter((f) => !seen.has(f.providerRef) && f.status !== "trashed").map((f) => f.id);
-  // The index forgets files that are no longer there (the files themselves were removed outside FolderPilot).
-  if (gone.length) await db.delete(files).where(s.where(files, inArray(files.id, gone)));
-  await s.update(spaces, eq(spaces.id, space.id), { syncCursor: String(Date.now()), updatedAt: new Date() });
+  if (!incremental) {
+    const gone = [...existing.values()].filter((f) => !seen.has(f.providerRef) && f.status !== "trashed").map((f) => f.id);
+    // The index forgets files that are no longer there (they were removed outside FolderPilot).
+    if (gone.length) await db.delete(files).where(s.where(files, inArray(files.id, gone)));
+    removed += gone.length;
+  }
+  await s.update(spaces, eq(spaces.id, space.id), { syncCursor: res.cursor, settings: { ...space.settings, lastScanAt: Date.now() }, updatedAt: new Date() });
 
-  const todo = await s.select(files, and(eq(files.spaceId, space.id), isNull(files.analyzedAt)));
+  const todo = await s.select(files, and(eq(files.spaceId, space.id), isNull(files.analyzedAt), sql`${files.status} <> 'trashed'`));
   await deps.enqueueAnalysis(todo.map((f) => ({ orgId: job.orgId, spaceId: space.id, fileId: f.id, withAI: job.withAI })));
   if (job.withAI) {
     // Files analyzed earlier but never sent to the AI.
-    const aiTodo = await s.select(files, and(eq(files.spaceId, space.id), isNull(files.aiAnalyzedAt), sql`${files.analyzedAt} is not null`));
+    const aiTodo = await s.select(files, and(eq(files.spaceId, space.id), isNull(files.aiAnalyzedAt), sql`${files.analyzedAt} is not null`, sql`${files.status} <> 'trashed'`));
     await deps.enqueueAI(aiTodo.map((f) => ({ orgId: job.orgId, spaceId: space.id, fileId: f.id })));
   }
-  return { added, changed, removed: gone.length, queued: todo.length };
+  return { added, changed, removed, queued: todo.length, incremental };
+}
+
+/** Connected spaces (Google Drive…) that should be checked for changes now. */
+export async function connectedSpacesToSync(db: Database) {
+  return db
+    .select({ orgId: spaces.organizationId, spaceId: spaces.id })
+    .from(spaces)
+    .where(and(eq(spaces.mode, "connect"), sql`${spaces.rootRef} <> ''`, sql`${spaces.credentialsEncrypted} is not null`, sql`(${spaces.settings}->>'needsReconnect') is null`) as SQL);
 }
 
 /** Hash, image metrics, EXIF and text for one file. */

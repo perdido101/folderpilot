@@ -4,6 +4,7 @@
  */
 import { spawn } from "node:child_process";
 import http from "node:http";
+import { MockGoogle } from "@folderpilot/adapters/testing";
 
 const port = Number(process.env.MOCK_AI_PORT ?? 3199);
 
@@ -17,6 +18,13 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === "/health") {
     res.end("ok");
+    return;
+  }
+  // Test hook: where the mock Drive's files are now (paths from My Drive, trashed ones marked).
+  if (req.url === "/gdrive/files") {
+    const list = [...google.files.values()].filter((f) => f.id !== "root-id").map((f) => `${google.pathOf(f.id)}${f.trashed ? " (trashed)" : ""}`);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ files: list.sort(), revoked: google.revoked.length }));
     return;
   }
   let body = "";
@@ -87,12 +95,21 @@ function agentTurn(res: http.ServerResponse, messages: { role: string; content?:
   finish();
 }
 
-server.listen(port, "127.0.0.1", () => console.log(`mock AI on ${port}`));
+// A small Drive: "Clients" is the folder the e2e test connects.
+const google = new MockGoogle();
+const clients = google.addFolder("Clients");
+google.addFolder("Personal");
+google.addFile("invoice-77.md", "INVOICE 77 — Alpha Ltd — EUR 300", clients);
+google.addFile("meeting.md", "Meeting notes for Alpha", clients);
+await google.start(Number(process.env.MOCK_GOOGLE_PORT ?? 3198));
+
+server.listen(port, "127.0.0.1", () => console.log(`mock AI on ${port}, mock Google on ${google.base}`));
 
 const worker = spawn("pnpm", ["--filter", "@folderpilot/worker", "exec", "tsx", "src/index.ts"], { cwd: "..", stdio: "inherit", env: process.env });
 const stop = () => {
   worker.kill("SIGTERM");
   server.close();
+  void google.stop();
   process.exit(0);
 };
 process.on("SIGTERM", stop);

@@ -49,6 +49,13 @@ export interface SpaceSettings {
   aiProvider?: "inherit" | "folderpilot" | "ollama" | "openai" | "anthropic" | "none";
   /** Plans touching at most this many files may auto-run (§2). 0 = always ask. */
   autoRunThreshold?: number;
+  /** Connect mode: the provider account (e.g. the Google email) and the chosen root folder's name. */
+  account?: string;
+  rootName?: string;
+  /** Set when the provider stopped accepting our credentials (revoked/expired): the space needs reconnecting. */
+  needsReconnect?: string | null;
+  /** When the space was last scanned (ms). */
+  lastScanAt?: number;
 }
 
 /** A connected source: a local folder, FolderPilot Cloud storage, or a Drive/OneDrive/Dropbox account. */

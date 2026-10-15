@@ -9,6 +9,7 @@ import { formatBytes, formatDate } from "@/lib/format";
 import { toast } from "@/stores/toasts";
 import { useSpaceAudit, useSpaceDuplicates, useSpaceFiles, useSpaceStatus, useUndoBatch, type SpaceFile } from "./api";
 import { SpaceHeader, type ActiveServerSpace } from "./space-header";
+import { ServerQuickLook } from "./server-quick-look";
 import { useReviewAction } from "./use-review-action";
 
 const BAD_FLAGS: FileFlag[] = ["blurry", "dark", "tiny", "screenshot"];
@@ -41,9 +42,11 @@ export function ServerFilesView({ space }: { space: ActiveServerSpace }) {
   const { t } = useTranslation("spaces");
   const [q, setQ] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
   const files = useSpaceFiles(space.orgId, space.id, q ? { q } : {}).data;
+  const [preview, setPreview] = useState<SpaceFile | null>(null);
   return (
     <div className="flex h-full flex-col">
       <SpaceHeader space={space} />
+      <ServerQuickLook orgId={space.orgId} file={preview} spaceName={space.name} onClose={() => setPreview(null)} />
       <div className="flex items-center gap-2 border-b px-4 py-2">
         <Search className="size-4 text-muted" />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("files.search")} aria-label={t("files.search")} className="h-8 max-w-sm" />
@@ -66,7 +69,9 @@ export function ServerFilesView({ space }: { space: ActiveServerSpace }) {
               {files?.files.map((f) => (
                 <tr key={f.id} className="border-b" title={f.caption ?? undefined}>
                   <td className="px-4 py-1.5">
-                    <FileName file={f} />
+                    <button className="block w-full min-w-0 rounded text-left hover:text-accent" onClick={() => setPreview(f)}>
+                      <FileName file={f} />
+                    </button>
                   </td>
                   <td className="truncate px-2 py-1.5">
                     {f.category ?? (f.analyzed ? "—" : <span className="inline-block h-3 w-20 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />)}

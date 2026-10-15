@@ -11,8 +11,59 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ✅ done |
 | 5 | Agent: tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode | ✅ done |
 | 6 | Search: full-text + pgvector hybrid, filters, search UI | ✅ done |
-| 7 | Cloud mode: fp-cloud adapter, uploads, previews, versions, shares, quotas, ClamAV | ⏭ next |
-| 8–14 | see `CLAUDE.md` §20 | — |
+| 7 | Cloud mode: fp-cloud adapter, uploads, previews, versions, shares, quotas, ClamAV | after OneDrive/Dropbox |
+| 8 | Connect mode: **Google Drive ✅ done** (brought forward at your request) · OneDrive/SharePoint, Dropbox | ⏭ next: OneDrive, Dropbox |
+| 9–14 | see `CLAUDE.md` §20 | — |
+
+## Google Drive (Connect mode, phase 8 part 1) — done
+
+Brought forward so you can try FolderPilot on your own Drive. Approved plans really move, rename and trash files in
+Drive (your choice: full access).
+
+- **Adapter** (`packages/adapters/src/gdrive`). It uses plain `fetch` (no SDK) and implements the whole
+  `StorageAdapter` on Drive API v3.
+  - **Access:** the access token refreshes before it expires and again on a 401, and new tokens are saved encrypted.
+    It backs off with jitter on 429, 5xx and Drive rate-limit errors. A revoked refresh token raises `DriveAuthError`.
+  - **Paths:** a space is one Drive folder, or all of My Drive. Paths are built by walking parents. Files outside the
+    folder and shortcuts are ignored. Shared drives are supported.
+  - **Versions:** a file's version is its `md5Checksum`, or `modifiedTime` for Google Docs, Sheets and Slides. So a
+    move or rename never looks like a content change, while an edit made in Drive is a conflict and is never
+    overwritten.
+  - **Writing:**
+    - moves use `addParents`/`removeParents`, renames use `name`;
+    - moves never overwrite a file: a taken name gets " (2)";
+    - creating a folder is idempotent;
+    - **trash uses Drive's own trash** (recoverable);
+    - restore brings a file back to its original folder, recreating that folder if needed.
+  - **Reading:**
+    - Google Docs, Sheets and Slides are read as their text/CSV export and show as `.gdoc`, `.gsheet` or `.gslides`;
+    - thumbnails come from Drive's `thumbnailLink`.
+- **Sync.** The first scan is a full listing. Later scans read Drive's **change feed** and apply only new, edited,
+  moved and removed files. A file moved in Drive keeps its analysis; an edited one is analyzed again; a file
+  FolderPilot trashed stays restorable.
+  - The worker checks every connected Drive every 5 minutes (`FP_SYNC_INTERVAL_SEC`).
+  - If Google stops accepting the token, the space is marked **needs reconnect** and the job fails without retrying.
+- **Connecting** (`apps/server/src/routes/connect.ts`):
+  - Google OAuth with PKCE and a single-use, 10-minute `state` (Redis), bound to the person who started it.
+  - Only owners and admins can connect.
+  - The scope is `drive`, with offline access.
+  - Tokens are stored AES-256-GCM-encrypted, bound to the space, and are never returned by the API.
+  - **Routes:** the folder picker (`…/provider-folders`); `PATCH …/spaces/:id` (rename, or choose a folder: a new
+    folder resets that space's index and starts a scan); **Reconnect** (keeps the space and its analysis);
+    **Disconnect** (revokes the token and removes the space and its index; never touches the Drive).
+  - Storage-provider errors now map to clear HTTP answers (404, 409 "reconnect", 502).
+- **Web.**
+  - **New → Connect a source → Google Drive** (shown when the server has Google keys; "needs setup" otherwise;
+    owners and admins only).
+  - After Google's consent: **pick a folder** (browse My Drive, "Use “Folder”" or "Use all of My Drive"), name the
+    space, and the scan starts.
+  - **Space header:** a Google Drive · folder badge; **Space settings** (rename, change folder, disconnect with a
+    confirmation saying your Drive stays untouched); a **reconnect banner**. The sidebar marks spaces that need
+    attention.
+  - Clicking a file in a server space opens **quick look** (preview, Download, **Open in Google Drive**).
+- **Fix:** a space showed "Working…" whenever any space was scanning. Its status now only counts its own scans.
+- **Docs:** `docs/SETUP.md` §2 is now a step-by-step "test with your own Google Drive" guide; `.env.example` gains the
+  Google endpoint overrides (tests only) and `FP_SYNC_INTERVAL_SEC`.
 
 ## Phase 6 — done
 
@@ -251,6 +302,38 @@ e2e/            Playwright smoke tests
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
+## Verified (after Google Drive)
+
+- `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
+- `pnpm test` — 253 unit tests. adapters 11, adding 7 Google Drive tests against a mock Drive:
+  - paging and paths, files outside the folder ignored;
+  - Docs export;
+  - the change feed (edit, move in and out, trash, delete);
+  - move and rename with " (2)", idempotent folders;
+  - trash and restore to a recreated folder;
+  - 401 → refresh → `onTokens`, 429 → backoff, revoked token → `DriveAuthError`.
+- `pnpm test:integration`:
+  - **server 50**, adding 9 for connect:
+    - consent URL (scope, offline access, PKCE);
+    - only admins; other organizations get 404;
+    - replayed, forged or hijacked `state` refused; refused consent explained;
+    - encrypted tokens, never returned;
+    - folder picker; choosing a folder resets the index and queues a scan;
+    - reconnect; disconnect revokes and leaves Drive untouched;
+    - "not configured".
+  - **worker 17**, adding 6 for Google Drive:
+    - full scan, then change-feed scans (moves keep analysis);
+    - an approved move and rename happen in Drive and undo puts them back;
+    - an edit made in Drive is a conflict;
+    - trash and restore through Drive's trash;
+    - revoked access → needs reconnect.
+  - **db 23.**
+- `pnpm test:e2e` — 14 tests. New: connect Google Drive (mock Google consent) → pick "Clients" → scan and AI → a
+  suggest rule → Approve → the file moved in the mock Drive → Undo → quick look with "Open in Google Drive" →
+  Disconnect (access revoked, the Drive keeps its files).
+- `pnpm dev` starts cleanly. Without Google keys, Drive stays hidden.
+- Not tested here: a real Google account (none available in this environment). That's your test, below.
+
 ## Verified (after phase 6)
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
@@ -281,14 +364,23 @@ e2e/            Playwright smoke tests
 3. To try the server pipeline: `pnpm sample`, set `FP_DEV_SAMPLE_DIR=/absolute/path/to/sample-messy` in `.env`,
    `pnpm db:migrate && pnpm db:seed`, `pnpm dev` (docs/SETUP.md §6c). For AI: `ANTHROPIC_API_KEY` (FolderPilot AI),
    or your own Claude/Bedrock/Vertex/OpenAI-compatible/Ollama in **Settings → AI for your organization** (§6, §6b).
-4. Optional now: Google / Microsoft sign-in keys → `docs/SETUP.md` §2–3. Everything else (Drive, OneDrive, Dropbox, S3, Anthropic,
+4. **Your Google Drive:** follow `docs/SETUP.md` §2 (Google Cloud project → Drive API → consent screen in Testing with
+   yourself as test user → Web OAuth client with both redirect URIs → `GOOGLE_CLIENT_ID/SECRET` in `.env`), restart
+   `pnpm dev`, then **New → Connect a source → Google Drive**.
+5. Optional: Microsoft sign-in keys → `docs/SETUP.md` §3. Everything else (Drive, OneDrive, Dropbox, S3, Anthropic,
    Stripe, ClamAV) is documented there with the phase that starts using it; all of it stays hidden until configured.
-5. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
+6. GitHub → Settings → General → **Default branch** → `main` (can't be changed from here).
 
 ## Known issues / notes
 
 - Emails (verification, invitations) are written to the server log, not sent — a mail provider comes with notifications.
-- Google/Microsoft login is wired but not verified here (needs your OAuth credentials).
+- Google/Microsoft login and Google Drive are tested against mocks here, not real Google (needs your OAuth credentials).
+- Google Drive: changes made in Drive arrive with the 5-minute sync, or with **Scan & analyze**. Instant push
+  notifications (Drive webhooks) need a public HTTPS URL and come at deploy time.
+- Google Drive in Testing mode: refresh tokens expire after 7 days, so you'll be asked to reconnect (one click; the
+  space and its analysis are kept). Opening it to other people requires Google's verification of the `drive` scope.
+- Google Drive: files larger than 256 MB are indexed and hashed but not decoded. Analysis downloads files from Drive
+  (only what's needed); thumbnails for the AI are made on the server (≤512 px).
 - Trash is never purged automatically yet (that would permanently remove files); auto-purge after retention comes with admin settings (phase 11).
 - The browser can't watch folders: changes made outside FolderPilot are picked up by Rescan, and show up as conflicts if a plan touches them.
 - Plans made before this update that were waiting as agent "undo" proposals were cancelled by the upgrade; ask the agent again.
@@ -304,7 +396,6 @@ e2e/            Playwright smoke tests
 - Full-text uses the language-neutral `simple` configuration plus light English plural folding ("invoices" finds
   "invoice", "companies" finds "company"); other word forms rely on prefix matching and search by meaning.
 - Conversations live in the browser tab (sessionStorage); they aren't saved on the server or shared across devices.
-- File chips in server-space answers show names only (quick look for server files comes with Cloud mode previews).
 - Real model quality isn't measured here: the agent is tested with scripted mock AIs (no Anthropic key in this
   environment).
 - Progress for server jobs is polled every 1.5 s while work is running (SSE comes with phase 5 streaming).

@@ -22,6 +22,11 @@ const schema = z.object({
 
   GOOGLE_CLIENT_ID: optional,
   GOOGLE_CLIENT_SECRET: optional,
+  /** Google endpoints; only tests and the E2E suite change these (they point at a mock Google). */
+  GOOGLE_OAUTH_URL: optional,
+  GOOGLE_TOKEN_URL: optional,
+  GOOGLE_REVOKE_URL: optional,
+  GOOGLE_DRIVE_API: optional,
   MICROSOFT_CLIENT_ID: optional,
   MICROSOFT_CLIENT_SECRET: optional,
   MICROSOFT_TENANT: optional,

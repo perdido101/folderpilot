@@ -3,7 +3,7 @@ import { Redis } from "ioredis";
 import { adapterForSpace } from "@folderpilot/adapters";
 import { createServerProvider, embedderFor, folderPilotAI, type HostedAIConfig } from "@folderpilot/ai/server";
 import { QUEUES } from "@folderpilot/core";
-import { createDb, parseKey } from "@folderpilot/db";
+import { createDb, openCredentials, parseKey, saveSpaceTokens } from "@folderpilot/db";
 import { createAuth } from "./auth";
 import type { Deps } from "./context";
 import { loadEnv, type Env } from "./env";
@@ -20,6 +20,7 @@ export function createDeps(source: Record<string, string | undefined> = process.
   const queueConnection = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: null });
   queueConnection.on("error", (err) => log.warn({ err: err.message }, "queue redis error"));
   const indexing = new Queue(QUEUES.indexing, { connection: queueConnection, prefix: env.FP_QUEUE_PREFIX });
+  const encryptionKey = parseKey(env.ENCRYPTION_KEY);
   const hosted: HostedAIConfig = { apiKey: env.ANTHROPIC_API_KEY, analysisModel: env.FP_AI_ANALYSIS_MODEL, agentModel: env.FP_AI_AGENT_MODEL };
   const deps: Deps = {
     env,
@@ -27,7 +28,7 @@ export function createDeps(source: Record<string, string | undefined> = process.
     redis,
     auth: createAuth(env, db, log),
     log,
-    encryptionKey: parseKey(env.ENCRYPTION_KEY),
+    encryptionKey,
     queues: { indexing },
     ai: {
       hosted: () => folderPilotAI(hosted),
@@ -35,7 +36,19 @@ export function createDeps(source: Record<string, string | undefined> = process.
       embedderFor: (s) => embedderFor(s, { ollamaUrl: env.OLLAMA_URL, model: env.FP_EMBED_MODEL }),
       ...replace.ai,
     },
-    adapterFor: replace.adapterFor ?? ((space) => adapterForSpace(space, { devSampleDir: env.FP_DEV_SAMPLE_DIR, production: env.NODE_ENV === "production" })),
+    adapterFor:
+      replace.adapterFor ??
+      ((space) =>
+        adapterForSpace(space, {
+          devSampleDir: env.FP_DEV_SAMPLE_DIR,
+          production: env.NODE_ENV === "production",
+          google: googleConfig(env),
+          credentials: {
+            open: (s) => openCredentials(encryptionKey, { id: s.id!, credentialsEncrypted: s.credentialsEncrypted ?? null }),
+            save: (s, tokens) => saveSpaceTokens(db, encryptionKey, s.id!, tokens),
+          },
+          ...(env.NODE_ENV === "test" ? { backoffMs: 1 } : {}),
+        })),
   };
   return {
     deps,
@@ -55,4 +68,10 @@ export function createDeps(source: Record<string, string | undefined> = process.
       await close();
     },
   };
+}
+
+/** Google OAuth client for Drive (null when GOOGLE_CLIENT_ID/SECRET aren't set: Drive stays hidden). */
+export function googleConfig(env: Env) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) return null;
+  return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tokenUrl: env.GOOGLE_TOKEN_URL, apiBase: env.GOOGLE_DRIVE_API };
 }
