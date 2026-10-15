@@ -93,6 +93,12 @@ export async function executePlan(planId: number): Promise<ExecResult> {
   return toResult(await engine.execute(planId), plan?.steps.some((s) => s.undoes !== undefined));
 }
 
+/** Run a plan from a rule set to "auto" (the engine refuses anything else). Still audited as rule:<id> and undoable. */
+export async function executeAutoRulePlan(planId: number): Promise<ExecResult> {
+  await engine.autoApprove(planId);
+  return toResult(await engine.execute(planId));
+}
+
 /** Create a plan for a person's action and execute it right away (the click is the approval). */
 export async function runUserAction(rootId: number, summary: string, steps: NewPlan["steps"], reason?: string): Promise<ExecResult> {
   return toResult(await engine.run({ spaceId: rootId, summary, steps, ...(reason ? { reason } : {}) }, LOCAL_USER));

@@ -124,7 +124,13 @@ export function Sidebar() {
   );
   const pending = useLiveQuery(() => (activeRootId === null ? 0 : db.plans.where("rootId").equals(activeRootId).filter((p) => p.status === "pending").count()), [activeRootId], 0);
   const nav = useVisibleNav();
-  const badges: Partial<Record<NavKey, number>> = serverSpace ? { review: serverStatus?.needsReview ?? 0 } : { review: needsReview, approvals: pending };
+  const serverPending = useQuery({
+    queryKey: ["space", activeServerSpaceId, "plans", "pending"],
+    enabled: Boolean(serverSpace),
+    queryFn: () => api<{ plans: unknown[] }>(`/api/orgs/${serverSpace!.orgId}/spaces/${serverSpace!.id}/plans?status=pending`),
+    refetchInterval: 15_000,
+  }).data;
+  const badges: Partial<Record<NavKey, number>> = serverSpace ? { review: serverStatus?.needsReview ?? 0, approvals: serverPending?.plans.length ?? 0 } : { review: needsReview, approvals: pending };
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-surface">

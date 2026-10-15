@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { setNavigator } from "@/lib/navigation";
 import { Inbox } from "lucide-react";
 import { Gate } from "@/app/gate";
 import { AppShell } from "@/components/layout/app-shell";
@@ -22,6 +23,7 @@ import { RecentPage } from "@/features/pages/recent-page";
 import { SharedPage } from "@/features/pages/shared-page";
 import { NeedsReviewPage } from "@/features/review/needs-review-page";
 import { RulesPage } from "@/features/rules/rules-page";
+import { ServerApprovals } from "@/features/server-space/server-approvals";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { TrashPage } from "@/features/trash/trash-page";
 import { PlaceholderPage } from "@/pages/placeholder-page";
@@ -54,8 +56,8 @@ const router = createBrowserRouter(
         { path: "recent", element: <SpaceRoute device={<RecentPage />} phase={6} /> },
         { path: "categories", element: <SpaceRoute device={<CategoriesPage />} phase={6} /> },
         { path: "duplicates", element: <SpaceRoute device={<DuplicatesPage />} server={(s) => <ServerDuplicates space={s} />} /> },
-        { path: "rules", element: <SpaceRoute device={<RulesPage />} phase={4} /> },
-        { path: "approvals", element: <SpaceRoute device={<ApprovalsPage />} phase={5} /> },
+        { path: "rules", element: <RulesPage /> },
+        { path: "approvals", element: <SpaceRoute device={<ApprovalsPage />} server={(space) => <ServerApprovals space={space} />} /> },
         { path: "audit", element: <SpaceRoute device={<AuditPage />} server={(s) => <ServerAudit space={s} />} /> },
         { path: "shared", element: <SharedPage /> },
         { path: "trash", element: <SpaceRoute device={<TrashPage />} phase={7} /> },
@@ -78,6 +80,7 @@ const router = createBrowserRouter(
   ],
   { basename: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" },
 );
+setNavigator((path) => void router.navigate(path));
 
 export function App() {
   return (

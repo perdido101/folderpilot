@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/api";
 import { toast } from "@/stores/toasts";
+import { ruleFromExample, useRuleDraft } from "@/features/rules/draft";
 import { useReview, useUndoBatch, type ReviewAction } from "./api";
 
 /** Run a review action (a plan through the engine) and show "… · Undo". */
@@ -8,6 +9,7 @@ export function useReviewAction(orgId: string, spaceId: string) {
   const { t } = useTranslation("spaces");
   const review = useReview(orgId, spaceId);
   const undo = useUndoBatch(orgId, spaceId);
+  const openDraft = useRuleDraft((s) => s.open);
   return {
     pending: review.isPending,
     async run(body: ReviewAction, summary: string) {
@@ -27,6 +29,13 @@ export function useReviewAction(orgId: string, spaceId: string) {
               },
             }
           : undefined);
+        if (res.ruleHint && body.action === "set_category") {
+          const hint = res.ruleHint;
+          toast(t("results.makeRuleHint", { category: hint.category }), "default", {
+            label: t("results.makeRule"),
+            run: () => openDraft(ruleFromExample({ ext: hint.ext, folder: hint.folder, docType: hint.docType }, hint.category)),
+          });
+        }
         return res;
       } catch (err) {
         toast(err instanceof ApiError || err instanceof Error ? err.message : String(err), "error");

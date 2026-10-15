@@ -5,6 +5,9 @@ import { ensureReadWrite } from "@/lib/fs-access";
 import { registerMemoryFiles, registerRootHandle } from "@/lib/file-access-cache";
 import { runLocalAnalysis } from "@/lib/analysis/runner";
 import { runAIAnalysis } from "@/lib/ai/pipeline";
+import { runRulesOnNewFiles } from "@/lib/rules/device-runner";
+import { announceRuleOutcomes } from "@/features/rules/announce";
+import { navigateTo } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
 import i18n from "@/i18n";
 import { useUI } from "./ui";
@@ -68,4 +71,10 @@ async function analyzeAfterIndex(rootId: number) {
   await runLocalAnalysis(rootId);
   const settings = await getSettings();
   if (settings.autoAnalyzeWithAI && settings.ai.provider !== "none") await runAIAnalysis(rootId).catch(() => undefined);
+  // New/changed files are ready: run the rules (auto rules apply, suggest rules wait in Pending Approvals).
+  const outcomes = await runRulesOnNewFiles(rootId).catch(() => []);
+  announceRuleOutcomes(
+    outcomes.map((o) => ({ mode: o.mode, files: o.files, done: o.result?.done, failed: o.result ? o.result.failed + o.result.conflicted : 0, error: o.error })),
+    { quietWhenNothing: true, openApprovals: () => navigateTo("/approvals") },
+  );
 }

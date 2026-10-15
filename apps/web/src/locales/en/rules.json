@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Rules",
-    "intro": "Structured rules run first (top to bottom), then natural-language rules via AI, then AI categorization.",
+    "intro": "Structured rules run first (top to bottom), then plain-language rules via AI, then AI categorization. Suggest rules create plans for approval; auto rules apply by themselves (still logged and undoable).",
     "runAll": "Run all…",
     "newRule": "New rule",
     "empty": "No rules yet. Try “If flag has screenshot → move to Temp”.",
@@ -12,7 +12,9 @@
     "editTest": "Edit / Test",
     "editTestTitle": "Edit and test (dry run)",
     "run": "Run…",
-    "deleteRule": "Delete rule {{name}}"
+    "deleteRule": "Archive rule {{name}}",
+    "viewOnly": "Your role can see rules but not change them.",
+    "lastRun": "last run {{when}}"
   },
   "natural": {
     "title": "Plain-language rules",
@@ -23,14 +25,15 @@
     "enable": "Enable rule",
     "convert": "Convert to structured",
     "converting": "Converting…",
-    "delete": "Delete rule"
+    "delete": "Archive rule"
   },
   "toasts": {
     "openFolder": "Open a folder first.",
     "noMatches": "No files match — nothing to change.",
     "connectAI": "Connect an AI in Settings to convert rules.",
     "convertFailed": "The AI couldn't convert this rule.",
-    "incomplete": "Give the rule a name, at least one condition and one action."
+    "incomplete": "Give the rule a name, at least one condition and one action.",
+    "openSpace": "Open a space first."
   },
   "describe": {
     "summary": "If {{conditions}} → {{actions}}",
@@ -42,7 +45,7 @@
   "builder": {
     "editTitle": "Edit rule",
     "newTitle": "New rule",
-    "description": "Rules never touch files on their own: running them creates a plan you approve.",
+    "description": "Suggest: running the rule creates a plan you approve. Nothing changes before that.",
     "namePlaceholder": "Rule name, e.g. Screenshots to Temp",
     "nameLabel": "Rule name",
     "if": "IF",
@@ -72,8 +75,22 @@
       "category": "Invoices",
       "tag": "paid",
       "setCategory": "Screenshots",
-      "caption": "Caption"
-    }
+      "caption": "Caption",
+      "client": "Alpha Ltd",
+      "docType": "invoice"
+    },
+    "descriptionAuto": "Auto: matches are changed right away when files are added or changed — every change is logged and can be undone. Moving to the Trash is never automatic.",
+    "mode": "Mode",
+    "scope": "Applies to",
+    "schedule": "Also run",
+    "scheduleHint": "Rules always run on new and changed files.",
+    "scopeAllFolders": "All folders",
+    "scopeAllSpaces": "All spaces",
+    "autoAdminOnly": "Only admins can make a rule run automatically.",
+    "testNeedsFolder": "Open a folder or space to test this rule.",
+    "testIncomplete": "Complete the rule to see what it would change.",
+    "firstOnly_one": "Showing the first change.",
+    "firstOnly_other": "Showing the first {{count}} changes."
   },
   "fields": {
     "ext": "File extension",
@@ -85,7 +102,10 @@
     "folder": "Folder",
     "category": "AI category",
     "flag": "Flag",
-    "tag": "Tag"
+    "tag": "Tag",
+    "client": "Client (AI)",
+    "docType": "Document type (AI)",
+    "space": "Space / folder"
   },
   "ops": {
     "is": "is",
@@ -98,7 +118,8 @@
     "within_days": "within last N days",
     "gt": "is larger than",
     "lt": "is smaller than",
-    "has": "has"
+    "has": "has",
+    "matches": "matches regex"
   },
   "actionTypes": {
     "move": "Move to folder",
@@ -107,5 +128,33 @@
     "caption": "Set caption",
     "set_category": "Set category",
     "flag_review": "Flag for review"
+  },
+  "results": {
+    "auto_one": "Auto rules changed 1 file",
+    "auto_other": "Auto rules changed {{count}} files",
+    "suggested_one": "1 suggestion is waiting for approval",
+    "suggested_other": "{{count}} suggestions are waiting for approval",
+    "failed_one": "1 change couldn't be made: {{error}}",
+    "failed_other": "{{count}} changes couldn't be made: {{error}}",
+    "nothing": "No files match — nothing to change.",
+    "review": "Review",
+    "saved": "Saved rule “{{name}}”",
+    "archived": "Archived rule “{{name}}”",
+    "undo": "Undo",
+    "undone": "Rule change undone"
+  },
+  "modes": {
+    "suggest": "Suggest",
+    "auto": "Auto"
+  },
+  "modeHints": {
+    "suggest": "Creates plans for approval.",
+    "auto": "Applies by itself (logged, undoable)."
+  },
+  "schedules": {
+    "none": "Only on new/changed files",
+    "hourly": "Every hour",
+    "daily": "Every day",
+    "weekly": "Every week"
   }
 }

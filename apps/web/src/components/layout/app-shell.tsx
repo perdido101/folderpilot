@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { useUI } from "@/stores/ui";
+import { useMode } from "@/stores/mode";
+import { runDueScheduledRules } from "@/lib/rules/device-runner";
+import { announceRuleOutcomes } from "@/features/rules/announce";
+import { navigateTo } from "@/lib/navigation";
+import { RuleDraftHost } from "@/features/rules/draft";
 import { Toaster } from "@/components/toaster";
 import { GlobalQuickLook } from "@/features/files/quick-look";
 import { CommandPalette } from "@/features/palette/command-palette";
@@ -32,9 +37,35 @@ function useGlobalShortcuts() {
   }, [setPaletteOpen, setShortcutsOpen]);
 }
 
+/** Scheduled rules for folders on this device run while the app is open (checked every minute). */
+function useDeviceRuleSchedule() {
+  const mode = useMode((s) => s.mode);
+  useEffect(() => {
+    if (mode !== "device") return;
+    let running = false;
+    const tick = async () => {
+      if (running) return;
+      running = true;
+      try {
+        const outcomes = await runDueScheduledRules();
+        announceRuleOutcomes(
+          outcomes.map((o) => ({ mode: o.mode, files: o.files, done: o.result?.done, failed: o.result ? o.result.failed + o.result.conflicted : 0, error: o.error })),
+          { quietWhenNothing: true, openApprovals: () => navigateTo("/approvals") },
+        );
+      } finally {
+        running = false;
+      }
+    };
+    const id = window.setInterval(() => void tick(), 60_000);
+    void tick();
+    return () => window.clearInterval(id);
+  }, [mode]);
+}
+
 export function AppShell() {
   const agentPanelOpen = useUI((s) => s.agentPanelOpen);
   useGlobalShortcuts();
+  useDeviceRuleSchedule();
   return (
     <div className="flex h-full">
       <Sidebar />
@@ -52,6 +83,7 @@ export function AppShell() {
       <CommandPalette />
       <ShortcutsOverlay />
       <Toaster />
+      <RuleDraftHost />
     </div>
   );
 }

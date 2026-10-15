@@ -16,8 +16,9 @@ export async function logRuleChange(rule: NewRule | Rule, rootId: number): Promi
   return id;
 }
 
-export async function deleteRule(rule: Rule, rootId: number) {
-  await db.rules.delete(rule.id);
-  // Logged as an update from the rule to nothing; undo restores it.
-  await db.audit.add({ at: Date.now(), actor: "user:local", action: "rule_update", fileIds: [], from: JSON.stringify(rule), to: JSON.stringify({ deleted: true }), before: rule.name, after: "deleted", reason: "Deleted rule", batchId: batch(), rootId });
+/** Rules are archived, never deleted: paused and hidden, and undo brings them back. */
+export async function archiveRule(rule: Rule, rootId: number) {
+  const next: Rule = { ...rule, archived: true, enabled: false };
+  await db.rules.put(next);
+  await db.audit.add({ at: Date.now(), actor: "user:local", action: "rule_update", fileIds: [], from: JSON.stringify(rule), to: JSON.stringify(next), before: rule.name, after: `${rule.name} (archived)`, reason: "Archived rule", batchId: batch(), rootId });
 }

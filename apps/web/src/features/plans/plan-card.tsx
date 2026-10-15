@@ -42,7 +42,7 @@ function useFileNames(steps: PlanStep[]) {
 const fileCount = (steps: PlanStep[]) => new Set(steps.map((s) => s.fileId).filter((x) => x !== undefined)).size;
 
 /** "user" / "agent" / "rule:<id>" → a translated name; anything else is shown as-is. */
-function useActorLabel() {
+export function useActorLabel() {
   const { t } = useTranslation(["plans", "common"]);
   return (actor: string) => {
     if (actor === "user" || actor.startsWith("user:")) return t("actors.user");

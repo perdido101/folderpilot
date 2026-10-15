@@ -76,7 +76,9 @@
     "undo": "Undo",
     "undone_one": "Undone · {{count}} change reverted",
     "undone_other": "Undone · {{count}} changes reverted",
-    "failed": "{{count}} couldn't be changed: {{error}}"
+    "failed": "{{count}} couldn't be changed: {{error}}",
+    "makeRuleHint": "Always put files like this in {{category}}?",
+    "makeRule": "Make this a rule?"
   },
   "notYet": {
     "title": "Not for server spaces yet",

@@ -43,6 +43,8 @@ export interface FileRecord {
   caption?: string;
   suggestedName?: string;
   client?: string;
+  /** AI document type, e.g. "invoice" (rules can match it). */
+  docType?: string;
   confidence?: number;
   aiReason?: string;
   /** Who set the category: the AI, a rule, or the user. Used by explain(). */
@@ -51,6 +53,8 @@ export interface FileRecord {
   trashedFrom?: string;
   /** Reason given when flagged as suggested_delete. */
   flagReason?: string;
+  /** Size-mtime the rules last looked at (rules run again when the file changes). */
+  rulesChecked?: string;
 }
 
 export type NewFileRecord = Omit<FileRecord, "id">;

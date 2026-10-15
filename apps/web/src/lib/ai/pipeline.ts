@@ -64,6 +64,7 @@ export async function runAIAnalysis(rootId: number, onlyIds?: number[]): Promise
           caption: insight.caption,
           suggestedName: insight.suggestedName,
           client: insight.entities.client ?? undefined,
+          docType: insight.entities.docType ?? undefined,
           confidence: insight.confidence,
           aiReason: insight.reason,
           status: low ? "needs_review" : "analyzed",

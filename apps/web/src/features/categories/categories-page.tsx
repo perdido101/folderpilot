@@ -10,18 +10,16 @@ import { formatBytes } from "@/lib/format";
 import { cn } from "@folderpilot/ui";
 import { FileBrowser } from "@/features/files/file-browser";
 import { PlanDialog } from "@/features/plans/plan-card";
-import { RuleBuilderDialog } from "@/features/rules/rule-builder";
+import { ruleFromExample, useRuleDraft } from "@/features/rules/draft";
 import { useActiveRoot, useRootFiles } from "@/hooks/use-active-root";
 import { toast } from "@/stores/toasts";
-import type { NewRule } from "@folderpilot/core";
 import { PlaceholderPage } from "@/pages/placeholder-page";
 
 /** Rule draft offered after dragging a file onto a category: "files like this → that category". */
-function ruleFromExample(file: FileRecord, category: string): NewRule {
+function draftFromFile(file: FileRecord, category: string) {
   const words = file.name.replace(/\.[^.]+$/, "").split(/[\s_\-()]+/).filter((w) => w.length > 3 && !/^\d+$/.test(w));
-  const conditions: NewRule["conditions"] = [{ field: "ext", op: "is", value: file.ext }];
-  if (words[0]) conditions.push({ field: "name", op: "contains", value: words[0].toLowerCase() });
-  return { type: "structured", name: `${words[0] ?? file.ext.toUpperCase()} → ${category}`, enabled: true, priority: 99, match: "all", conditions, actions: [{ type: "set_category", value: category }], createdBy: "user", createdAt: Date.now() };
+  const nameWord = words[0]?.toLowerCase();
+  return ruleFromExample({ ext: file.ext, docType: file.docType ?? null, ...(nameWord ? { nameWord } : {}) }, category);
 }
 
 /** Group key for files without a category (data value, shown translated). */
@@ -33,7 +31,7 @@ export function CategoriesPage() {
   const files = useRootFiles(root?.id);
   const [open, setOpen] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [ruleDraft, setRuleDraft] = useState<NewRule | null>(null);
+  const openDraft = useRuleDraft((s) => s.open);
   const [planId, setPlanId] = useState<number | null>(null);
 
   const groups = useMemo(() => {
@@ -59,7 +57,7 @@ export function CategoriesPage() {
     const dropped = (await db.files.bulkGet(ids)).filter((f): f is FileRecord => Boolean(f));
     const res = await setCategory(root.id, dropped, category);
     const example = dropped[0];
-    if (res && example) toast(t("movedTo", { category }), "success", { label: t("makeRule"), run: () => setRuleDraft(ruleFromExample(example, category)) });
+    if (res && example) toast(t("movedTo", { category }), "success", { label: t("makeRule"), run: () => openDraft(draftFromFile(example, category)) });
   };
 
   const current = open ? groups.find(([c]) => c === open)?.[1] ?? [] : null;
@@ -150,7 +148,6 @@ export function CategoriesPage() {
           </div>
         </div>
       )}
-      {ruleDraft && <RuleBuilderDialog initial={ruleDraft} onClose={() => setRuleDraft(null)} />}
       <PlanDialog planId={planId} onClose={() => setPlanId(null)} />
     </div>
   );

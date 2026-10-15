@@ -8,8 +8,49 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 1 | Monorepo + foundations (db, auth/orgs/roles, API, worker, web shell, i18n (English), dev services, CI) | ✅ done |
 | 2 | Core engine: StorageAdapter, plan engine, audit, undo, trash/restore, conflict checks; `local-browser` adapter | ✅ done |
 | 3 | Analysis + AI: analysis package (browser + worker), BullMQ jobs, four AI providers, insight pipeline, Needs Review, Duplicates & Bad Files | ✅ done |
-| 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ⏭ next |
-| 5–14 | see `CLAUDE.md` §20 | — |
+| 4 | Rules: structured builder UI, natural rules, dry-run, auto/suggest modes, triggers | ✅ done |
+| 5 | Agent: tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode | ⏭ next |
+| 6–14 | see `CLAUDE.md` §20 | — |
+
+## Phase 4 — done
+
+- **Rule engine (`packages/core`).**
+  - New conditions: name/content **matches regex** (case-insensitive; empty, over-long, nested-quantifier or invalid
+    patterns never match and are flagged in the builder), **client** and **document type** (from AI entities),
+    **space / folder** (the source). New template variable `{docType}`.
+  - Every rule has a **mode** (Suggest = creates a plan for approval; Auto = applies by itself, still audited as
+    `rule:<id>` and undoable), a **scope** (all spaces or one), a **schedule** (only new/changed files, hourly, daily,
+    weekly) and can be **archived** (rules are never deleted; archive is an audited, undoable change).
+  - `rulesForFiles()` groups what the rules would do per rule in spec order (priority, first matching move wins, tags
+    add up); `ruleProblem()` is the one validator used by the builder, the API and AI proposals.
+  - Engine `autoApprove()`: only plans from an enabled rule set to Auto may run without a person; trash/restore never
+    qualify. `approvedBy` stays empty — no person approved it.
+- **Plain-language → structured (`packages/ai`).** `proposeStructuredRule()` asks the configured AI for one rule as JSON
+  and validates it (zod + `ruleProblem`); unknown fields are dropped, there's no delete action, and the AI can answer
+  "can't be expressed" with a reason. The result opens in the builder as a proposal; nothing is saved automatically.
+- **Server.**
+  - Migration `0005`: rules get `scope_space_id`, `schedule`, `last_run_at`, `archived_at`; files get `rules_checked_at`.
+  - `GET/POST/PUT/DELETE /api/orgs/:id/rules` — every change is a plan through the engine (audited, undoable;
+    `…/rules/history`, `…/rules/undo`). **Only admins can make or change Auto rules** (anyone who manages rules may
+    still pause or archive one). Viewers can read rules.
+  - `POST …/rules/test` dry-run of a saved or unsaved rule (count + first steps, nothing changes),
+    `POST …/rules/run` ("Run on folder": auto rules execute, suggest rules become pending plans; files already waiting
+    in a pending plan of the same rule are skipped), `POST …/rules/convert` (organization AI).
+  - Pending plans: `GET …/spaces/:id/plans?status=pending`, `POST …/plans/:id/approve | keep-steps | cancel`.
+  - "Set category" in Needs Review returns a hint so the UI can offer **Make this a rule?**.
+- **Worker triggers.** A per-space `rules` job (deduplicated) runs after a file's AI insight — or after local analysis
+  when the org has no AI — over files the rules haven't seen since their last analysis. A **15-minute tick** runs due
+  scheduled rules over their whole scope (records `last_run_at`) and re-queues spaces with unchecked files as a safety net.
+- **Web (same UI for "This device" and server spaces).**
+  - Rules page with mode/schedule/scope badges, reorder, Edit/Test, Run, Run all, archive; read-only for viewers.
+  - Builder: new fields, live regex validation, Mode (Auto disabled with a note when your role can't pick it), Applies
+    to, Also run (schedule), and a dry-run with the first 10 before → after changes.
+  - Plain-language rules: add, pause, archive, **Convert to structured** (opens the builder pre-filled).
+  - **Pending Approvals for server spaces** (Approve with Undo, Edit = untick steps, Cancel) + sidebar badge.
+  - **Make this a rule?** after "Set category" on a server space (and still after drag-to-category on this device),
+    pre-filled from the file's extension and AI document type or folder.
+  - This device: auto rules run after a folder is indexed and analyzed, suggest rules wait in Pending Approvals,
+    schedules run while the app is open (checked every minute). A toast summarizes what rules did, with "Review".
 
 ## Phase 3 — done
 
@@ -126,24 +167,26 @@ e2e/            Playwright smoke tests
 - **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit tests, integration tests (Postgres + Redis services), build.
   Pages workflow now builds `apps/web` in device-only mode.
 
-## Verified (after phase 3)
+## Verified (after phase 4)
 
 - `pnpm lint` ✅ · `pnpm typecheck` ✅ · `pnpm build` ✅
-- `pnpm test` — 202 unit tests: core 81, web 48 (adds Accept-through-engine), ai 29 (parsing incl. entities; every
-  provider against a mock HTTP server: insights, streaming chat with tool calls, embeddings, usage, refusals, errors;
-  server factory for FolderPilot AI/Bedrock/Vertex), analysis 27 (`analyzeFile` on JPEG/TXT/DOCX/PDF hook, broken
-  files, partial hash, screenshot heuristic, dHash/duplicates), adapters 4 (read-only, path traversal, symlinks,
-  registry), server 11, worker 2.
-- `pnpm test:integration` (real Postgres + Redis) — db 16 (adds org settings: encrypted, never returned, kept when
-  sent back empty, bound to the org; metered AI: cache, usage, budget, org isolation), server 20 (adds AI settings
-  permissions, describe proxy: permissions, oversized thumbnail, budget 429, cache; SSE chat; files/status/duplicates;
-  other orgs get 404; Accept audited + undo; trash refused on read-only space; scan queued), worker 4 (adds the full
-  pipeline on a temp folder: images/text/PDF analysis, duplicate + blur flags, AI once per content, Needs Review,
-  idempotent re-scan, edited file re-analyzed).
-- `pnpm test:e2e` (Playwright, Chromium, real worker + mock AI) — 7 tests: the 5 from before, plus **seeded owner →
-  Settings → org AI → Sample files (dev) → Scan & analyze → Needs Review → Accept → Audit Log → Undo → Duplicates &
-  review mode (trash refused, read-only)**, and device-mode local analysis finding exact duplicates.
-- `pnpm services:up && pnpm db:migrate && pnpm db:seed && pnpm dev` — web :5173, API :3000 (health ok), worker heartbeat logged.
+- `pnpm test` — 218 unit tests: core 90 (adds regex/client/docType/space conditions, `{docType}`, scope/archive,
+  `rulesForFiles`, `isRuleDue`, `ruleProblem`, `autoApprove` refusals), web 52 (adds the device rule runner: auto
+  applies + undo, suggest waits, no duplicates, scope/paused/archived, schedules), ai 32 (adds `proposeStructuredRule`:
+  valid, unknown fields stripped, invalid ops / unsafe regex / delete action / non-JSON refused, AI's own refusal),
+  analysis 27, adapters 4, server 11, worker 2.
+- `pnpm test:integration` (real Postgres + Redis) — db 16, server 29 (adds rules CRUD audited + undo, validation,
+  auto needs admin / editors may pause / viewers read-only / other orgs 404, dry-run, run: auto executes as the rule
+  and suggest waits with no duplicates, approve / keep steps / cancel, run on one folder, "Make this a rule?" hint,
+  convert with and without AI), worker 8 (adds: after a scan an auto rule tags and a suggest rule makes exactly one
+  pending plan; a changed file doesn't duplicate it; a weekly rule runs once per interval and records `last_run_at`;
+  the tick re-queues unchecked spaces).
+- `pnpm test:e2e` (Playwright, Chromium, real worker + mock AI) — 9 tests, adding **server space: create an Auto rule
+  (txt → tag) and a Suggest rule (jpg → category) with live dry-run → Run all → Pending Approvals → Approve → files
+  show the category → Audit Log shows the rule as actor → Undo**, and **this device: an Auto rule moves new files on
+  disk after the folder is analyzed**.
+- `pnpm dev` with migration 0005 — web :5173, API :3000 (health ok), worker started; rules API answers on the dev
+  sample space (dry-run over 537 files).
 
 ## What you need to configure
 
@@ -163,8 +206,13 @@ e2e/            Playwright smoke tests
 - Trash is never purged automatically yet (that would permanently remove files); auto-purge after retention comes with admin settings (phase 11).
 - The browser can't watch folders: changes made outside FolderPilot are picked up by Rescan, and show up as conflicts if a plan touches them.
 - Plans made before this update that were waiting as agent "undo" proposals were cancelled by the upgrade; ask the agent again.
-- Server spaces: the agent panel, Rules, Categories, Recent, Approvals and Trash views still work on folders on this
-  device only (they say which phase brings server spaces). The dev sample space is read-only until phase 9.
+- Server spaces: the agent panel, Categories, Recent and Trash views still work on folders on this device only (they
+  say which phase brings server spaces). The dev sample space is read-only until phase 9, so Auto rules that move or
+  rename fail there with a "read-only" reason (tags, captions, categories and review flags work).
+- Rules on server spaces run on a space when its files change, plus a 15-minute schedule tick; if files change while
+  a rules run is already going, they're picked up by the next run or the tick (at most ~15 minutes later).
+- On this device, scheduled rules only run while the app is open (browsers can't run in the background).
+- The agent's own rule proposals stay Suggest-only; agent tools for proposing rules from chat come with phase 5.
 - Progress for server jobs is polled every 1.5 s while work is running (SSE comes with phase 5 streaming).
 - AI for server spaces is tested against mocks here (no Anthropic/Bedrock/Vertex credentials in this environment).
 - Embeddings (search by meaning) for server spaces arrive in phase 6; per-space AI override in phase 9.

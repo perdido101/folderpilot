@@ -58,7 +58,9 @@
     "runRule": "Run rule “{{name}}”",
     "runAllRules": "Run all rules",
     "undoBatch": "Undo of batch {{id}}",
-    "undoEntry": "Undo of #{{id}}"
+    "undoEntry": "Undo of #{{id}}",
+    "ruleRun_one": "{{name}}: 1 file",
+    "ruleRun_other": "{{name}}: {{count}} files"
   },
   "toasts": {
     "nothingChanged": "Nothing changed: {{error}}",

@@ -71,6 +71,8 @@ export interface SpaceAuditEvent {
 
 export interface ReviewResult {
   planId?: string;
+  /** After "Set category": what to pre-fill in "Make this a rule?". */
+  ruleHint?: { category: string; ext: string; folder: string; docType: string | null } | null;
   batchId: string | null;
   done: number;
   failed: number;
