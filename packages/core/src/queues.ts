@@ -39,3 +39,9 @@ export interface AIJob {
   spaceId: string;
   fileId: string;
 }
+
+/** Run structured rules on new/changed files of a space (deduplicated per space). */
+export interface RulesJob {
+  orgId: string;
+  spaceId: string;
+}

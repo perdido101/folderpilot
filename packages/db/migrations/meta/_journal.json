@@ -36,6 +36,13 @@
       "when": 1792015136648,
       "tag": "0004_analysis_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792047207223,
+      "tag": "0005_rules_phase4",
+      "breakpoints": true
     }
   ]
 }

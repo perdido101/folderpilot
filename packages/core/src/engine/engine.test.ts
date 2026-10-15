@@ -452,3 +452,25 @@ describe("canAutoRun", () => {
     expect(canAutoRun({ source: "user", steps: steps(1, "trash") }, settings)).toBe(false);
   });
 });
+
+describe("auto rules", () => {
+  const ruleBase = { type: "structured" as const, enabled: true, priority: 1, match: "all" as const, conditions: [], actions: [], createdBy: "user" as const, createdAt: 0 };
+  it("autoApprove runs plans of rules set to auto, and refuses everything else", async () => {
+    const autoId = await store.createRule({ ...ruleBase, name: "Auto", mode: "auto" });
+    const suggestId = await store.createRule({ ...ruleBase, name: "Suggest" });
+    const autoPlan = await engine.createPlan({ spaceId: 1, source: "rule", actor: `rule:${autoId}`, summary: "x", steps: [{ fileId: id("Downloads/a.pdf"), action: "tag", to: "auto" }] });
+    await engine.autoApprove(autoPlan);
+    expect(await engine.execute(autoPlan)).toMatchObject({ status: "executed", done: 1 });
+    const plan = (await store.getPlan(autoPlan))!;
+    expect(plan.approvedBy).toBeUndefined();
+    expect(store.state.audit.at(-1)).toMatchObject({ actor: `rule:${autoId}`, action: "tag" });
+
+    const suggestPlan = await engine.createPlan({ spaceId: 1, source: "rule", actor: `rule:${suggestId}`, summary: "x", steps: [{ fileId: id("Downloads/a.pdf"), action: "tag", to: "s" }] });
+    await expect(engine.autoApprove(suggestPlan)).rejects.toThrow(/set to suggest/);
+    const agentPlan = await engine.createPlan({ spaceId: 1, source: "agent", actor: "agent:u1", summary: "x", steps: [{ fileId: id("Downloads/a.pdf"), action: "tag", to: "s" }] });
+    await expect(engine.autoApprove(agentPlan)).rejects.toThrow(/Only plans from an enabled rule/);
+    await store.putRule({ ...(await store.getRule(autoId))!, enabled: false });
+    const disabled = await engine.createPlan({ spaceId: 1, source: "rule", actor: `rule:${autoId}`, summary: "x", steps: [{ fileId: id("Downloads/b.pdf"), action: "tag", to: "s" }] });
+    await expect(engine.autoApprove(disabled)).rejects.toThrow(/enabled rule/);
+  });
+});

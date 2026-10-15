@@ -189,7 +189,12 @@ export function spaceFileRoutes(deps: Deps) {
     const approver: Approver = { userId: user.id, role: org.role };
     try {
       const res = await engine.run(input, approver);
-      return c.json({ planId: res.planId, batchId: res.batchId, status: res.status, done: res.done, failed: res.failed, conflicted: res.conflicted, errors: res.errors });
+      // After a manual recategorization the UI offers "Make this a rule?" pre-filled from the first file.
+      const example = body.action === "set_category" ? rows[0]! : null;
+      const ruleHint = example
+        ? { category: body.action === "set_category" ? body.category : "", ext: example.ext, folder: example.path.includes("/") ? example.path.slice(0, example.path.lastIndexOf("/")) : "", docType: example.entities?.docType ?? null }
+        : null;
+      return c.json({ planId: res.planId, batchId: res.batchId, status: res.status, done: res.done, failed: res.failed, conflicted: res.conflicted, errors: res.errors, ruleHint });
     } catch (err) {
       if (err instanceof EngineError) throw new HTTPException(err.code === "forbidden" ? 403 : 409, { message: err.message });
       throw err;

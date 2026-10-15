@@ -36,6 +36,10 @@ export interface IndexedFile<I extends Id = Id> {
   category?: string;
   caption?: string;
   client?: string;
+  /** AI entity: document type (invoice, contract, NDA, …). */
+  docType?: string;
+  /** The space the file belongs to (server spaces; the root folder id in the browser). */
+  spaceId?: Id;
 }
 
 /** Plan step actions. There is deliberately no "delete"; trash is human-only (enforced by the engine). */

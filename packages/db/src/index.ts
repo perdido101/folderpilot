@@ -7,3 +7,4 @@ export { createPgEngineStore, toEngineFile, toRule } from "./engine-store";
 export * from "./crypto";
 export * from "./org-settings";
 export * from "./ai-service";
+export * from "./rule-runner";

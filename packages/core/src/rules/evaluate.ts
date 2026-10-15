@@ -1,6 +1,6 @@
 import { cleanFolderPath, sanitizeSuggestedName } from "../naming";
-import type { IndexedFile, ProposedStep } from "../types";
-import type { Condition, Rule } from "./types";
+import type { Id, IndexedFile, ProposedStep } from "../types";
+import { OPS_BY_FIELD, type Condition, type Rule, type RuleMode, type RuleSchedule } from "./types";
 
 const DAY = 86_400_000;
 
@@ -20,6 +20,44 @@ const list = (value: string) =>
     .map((v) => v.trim().toLowerCase().replace(/^\./, ""))
     .filter(Boolean);
 
+const MAX_PATTERN = 200;
+/** Nested quantifiers like (a+)+ or (a*)* can take exponential time on some inputs. */
+const NESTED_QUANTIFIER = /\([^)]*[+*][^)]*\)\s*[+*{]/;
+
+/** Why a regex can't be used in a rule, or null when it's fine. */
+export function regexProblem(pattern: string): string | null {
+  if (!pattern.trim()) return "The pattern is empty.";
+  if (pattern.length > MAX_PATTERN) return `Patterns can be at most ${MAX_PATTERN} characters.`;
+  if (NESTED_QUANTIFIER.test(pattern)) return "Nested repetition like (a+)+ is too slow to run safely.";
+  try {
+    new RegExp(pattern, "i");
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "Invalid pattern.";
+  }
+}
+
+const regexCache = new Map<string, RegExp | null>();
+function safeRegex(pattern: string): RegExp | null {
+  let re = regexCache.get(pattern);
+  if (re === undefined) {
+    re = regexProblem(pattern) ? null : new RegExp(pattern, "i");
+    if (regexCache.size > 500) regexCache.clear();
+    regexCache.set(pattern, re);
+  }
+  return re;
+}
+
+/** Inputs to regex tests are capped so a pattern can't run over megabytes of text. */
+const matchesPattern = (pattern: string, text: string) => safeRegex(pattern)?.test(text.slice(0, 20_000)) ?? false;
+
+function textOp(op: Condition["op"], have: string, want: string): boolean {
+  const h = have.toLowerCase();
+  if (op === "contains") return h.includes(want);
+  if (op === "is_not") return h !== want;
+  return h === want;
+}
+
 export function matchesCondition(file: IndexedFile, c: Condition, now = Date.now()): boolean {
   const v = c.value.trim().toLowerCase();
   switch (c.field) {
@@ -28,6 +66,7 @@ export function matchesCondition(file: IndexedFile, c: Condition, now = Date.now
     case "kind":
       return c.op === "is_not" ? file.kind !== v : file.kind === v;
     case "name": {
+      if (c.op === "matches") return matchesPattern(c.value.trim(), file.name);
       const n = file.name.toLowerCase();
       if (c.op === "contains") return n.includes(v);
       if (c.op === "not_contains") return !n.includes(v);
@@ -35,7 +74,9 @@ export function matchesCondition(file: IndexedFile, c: Condition, now = Date.now
       return n === v || baseName(n) === v;
     }
     case "content": {
-      const text = `${file.textExcerpt ?? ""}\n${file.caption ?? ""}`.toLowerCase();
+      const raw = `${file.textExcerpt ?? ""}\n${file.caption ?? ""}`;
+      if (c.op === "matches") return matchesPattern(c.value.trim(), raw);
+      const text = raw.toLowerCase();
       return c.op === "not_contains" ? !text.includes(v) : text.includes(v);
     }
     case "date": {
@@ -63,11 +104,21 @@ export function matchesCondition(file: IndexedFile, c: Condition, now = Date.now
       return file.flags.some((f) => f === v);
     case "tag":
       return file.tags.some((t) => t.toLowerCase() === v);
+    case "client":
+      return textOp(c.op, file.client ?? "", v);
+    case "docType":
+      return textOp(c.op, file.docType ?? "", v);
+    case "space":
+      return c.op === "is_not" ? String(file.spaceId ?? "") !== c.value.trim() : String(file.spaceId ?? "") === c.value.trim();
   }
 }
 
+/** A rule applies to a file's space: no scope = every space. */
+export const ruleInScope = (rule: Pick<Rule, "scopeSpaceId">, spaceId: Id | undefined) => rule.scopeSpaceId === undefined || rule.scopeSpaceId === null || String(rule.scopeSpaceId) === String(spaceId);
+
 export function matchesRule(file: IndexedFile, rule: Rule, now = Date.now()): boolean {
-  if (rule.type !== "structured" || rule.conditions.length === 0) return false;
+  if (rule.type !== "structured" || rule.conditions.length === 0 || rule.archived) return false;
+  if (!ruleInScope(rule, file.spaceId)) return false;
   return rule.match === "any"
     ? rule.conditions.some((c) => matchesCondition(file, c, now))
     : rule.conditions.every((c) => matchesCondition(file, c, now));
@@ -84,7 +135,7 @@ const TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-/** Expand {year} {month} {day} {category} {client} {type} {ext} {name} {folder} in a template. */
+/** Expand {year} {month} {day} {date} {category} {client} {docType} {type} {ext} {name} {folder} in a template. */
 export function renderTemplate(template: string, file: IndexedFile): string {
   const d = new Date(file.mtime);
   const vars: Record<string, string> = {
@@ -94,6 +145,7 @@ export function renderTemplate(template: string, file: IndexedFile): string {
     date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
     category: file.category || "Uncategorized",
     client: file.client || "No client",
+    doctype: file.docType || "Other documents",
     type: TYPE_LABELS[file.kind] ?? "Other",
     ext: file.ext,
     name: baseName(file.name),
@@ -156,7 +208,7 @@ export function dryRun<F extends IndexedFile>(files: F[], rule: Rule, now = Date
  * first rule that moves/renames it; tags, captions, categories and flags from every matching rule apply.
  */
 export function planAllRules<F extends IndexedFile>(files: F[], rules: Rule[], now = Date.now()): ProposedStep<F["id"]>[] {
-  const ordered = rules.filter((r) => r.enabled && r.type === "structured").sort((a, b) => a.priority - b.priority);
+  const ordered = rules.filter((r) => r.enabled && !r.archived && r.type === "structured").sort((a, b) => a.priority - b.priority);
   const steps: ProposedStep<F["id"]>[] = [];
   for (const file of files) {
     if (file.status === "trashed") continue;
@@ -176,4 +228,49 @@ export function planAllRules<F extends IndexedFile>(files: F[], rules: Rule[], n
     }
   }
   return steps;
+}
+
+export interface RulePlan<I extends Id = Id> {
+  rule: Rule;
+  mode: RuleMode;
+  steps: ProposedStep<I>[];
+}
+
+/**
+ * What the enabled rules would do to these files, grouped per rule (spec §8 order: priority, first matching move wins,
+ * tags add up). Auto rules run by themselves; suggest rules become plans for a person to approve.
+ */
+export function rulesForFiles<F extends IndexedFile>(files: F[], rules: Rule[], now = Date.now()): RulePlan<F["id"]>[] {
+  const steps = planAllRules(files, rules, now);
+  const byActor = new Map<string, ProposedStep<F["id"]>[]>();
+  for (const s of steps) byActor.set(s.actor ?? "", [...(byActor.get(s.actor ?? "") ?? []), s]);
+  return rules
+    .filter((r) => byActor.has(`rule:${r.id}`))
+    .sort((a, b) => a.priority - b.priority)
+    .map((rule) => ({ rule, mode: rule.mode ?? "suggest", steps: byActor.get(`rule:${rule.id}`)! }));
+}
+
+const INTERVAL: Record<Exclude<RuleSchedule, "none">, number> = { hourly: 3_600_000, daily: 86_400_000, weekly: 7 * 86_400_000 };
+
+/** Whether a scheduled rule should run now. */
+export function isRuleDue(rule: Pick<Rule, "schedule" | "lastRunAt" | "enabled" | "archived">, now = Date.now()): boolean {
+  if (!rule.enabled || rule.archived || !rule.schedule || rule.schedule === "none") return false;
+  return rule.lastRunAt === undefined || now - rule.lastRunAt >= INTERVAL[rule.schedule];
+}
+
+/** The first reason a rule can't be saved (null = fine). Shared by the builder, the API and AI proposals. */
+export function ruleProblem(rule: Pick<Rule, "type" | "name" | "conditions" | "actions" | "naturalText">): string | null {
+  if (!rule.name.trim()) return "Give the rule a name.";
+  if (rule.type === "natural") return rule.naturalText?.trim() ? null : "Describe the rule in a sentence.";
+  if (rule.conditions.length === 0) return "Add at least one condition.";
+  if (rule.actions.length === 0) return "Add at least one action.";
+  for (const c of rule.conditions) {
+    if (!OPS_BY_FIELD[c.field]?.includes(c.op)) return `"${c.op.replace("_", " ")}" doesn't work with ${c.field}.`;
+    if (c.op === "matches") {
+      const problem = regexProblem(c.value);
+      if (problem) return problem;
+    } else if (!c.value.trim()) return `Fill in a value for ${c.field}.`;
+  }
+  for (const a of rule.actions) if (a.type !== "flag_review" && !a.value.trim()) return `Fill in a value for "${a.type.replace("_", " ")}".`;
+  return null;
 }

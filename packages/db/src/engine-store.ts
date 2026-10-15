@@ -37,6 +37,8 @@ interface Side {
 const ms = (d: Date | null | undefined) => (d ? d.getTime() : undefined);
 const date = (n: number | undefined) => (n === undefined ? undefined : new Date(n));
 const str = (id: Id) => String(id);
+/** Organization-wide plans (e.g. rule changes) have no space: "" in the engine, null in Postgres. */
+const spaceOrNull = (id: Id) => (id === "" ? null : String(id));
 /** Copy only defined values (drizzle treats undefined as "leave as is", which is what we want for optional fields). */
 const defined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 
@@ -74,6 +76,7 @@ export function toEngineFile(f: FileRow): EngineFile {
     category: f.category ?? undefined,
     caption: f.caption ?? undefined,
     client: f.entities?.client,
+    docType: f.entities?.docType,
     categorySource: f.categorySource ?? undefined,
     flagReason: f.flagReason ?? undefined,
   });
@@ -152,7 +155,32 @@ export function toRule(r: RuleRow): Rule {
     naturalText: r.naturalText ?? undefined,
     createdBy: r.createdBy.startsWith("agent") ? "agent" : "user",
     createdAt: r.createdAt.getTime(),
+    mode: r.mode,
+    scopeSpaceId: r.scopeSpaceId ?? undefined,
+    schedule: r.schedule,
+    lastRunAt: ms(r.lastRunAt),
+    archived: r.archivedAt !== null,
   });
+}
+
+/** Rule fields stored as columns (shared by create and put). */
+function ruleValues(rule: NewRule | Rule) {
+  return {
+    type: rule.type,
+    name: rule.name,
+    enabled: rule.enabled,
+    priority: rule.priority,
+    match: rule.match,
+    conditions: rule.conditions,
+    actions: rule.actions,
+    naturalText: rule.naturalText ?? null,
+    mode: rule.mode ?? "suggest",
+    // null arrives from JSON rule updates that clear the scope.
+    scope: rule.scopeSpaceId == null ? ("org" as const) : ("space" as const),
+    scopeSpaceId: rule.scopeSpaceId == null ? null : String(rule.scopeSpaceId),
+    schedule: rule.schedule ?? "none",
+    lastRunAt: rule.lastRunAt === undefined ? null : new Date(rule.lastRunAt),
+  };
 }
 
 function stepValues(planId: string, s: PlanStep) {
@@ -215,7 +243,7 @@ export function createPgEngineStore(db: Database, organizationId: string): Engin
     async insertPlan(plan: NewPlan) {
       const run = async () => {
         const row = await sc().insert(plans, {
-          spaceId: str(plan.spaceId),
+          spaceId: spaceOrNull(plan.spaceId),
           source: plan.source,
           actor: plan.actor,
           summary: plan.summary,
@@ -267,7 +295,7 @@ export function createPgEngineStore(db: Database, organizationId: string): Engin
     async appendAudit(e: NewAuditEvent) {
       const row = await sc().insert(auditEvents, {
         at: new Date(e.at),
-        spaceId: str(e.spaceId),
+        spaceId: spaceOrNull(e.spaceId),
         actor: e.actor,
         action: e.action,
         fileIds: e.fileIds.map(str),
@@ -333,18 +361,7 @@ export function createPgEngineStore(db: Database, organizationId: string): Engin
     },
 
     async createRule(rule: NewRule) {
-      const row = await sc().insert(rules, {
-        type: rule.type,
-        name: rule.name,
-        enabled: rule.enabled,
-        priority: rule.priority,
-        match: rule.match,
-        conditions: rule.conditions,
-        actions: rule.actions,
-        naturalText: rule.naturalText ?? null,
-        createdBy: rule.createdBy,
-        createdAt: new Date(rule.createdAt),
-      });
+      const row = await sc().insert(rules, { ...ruleValues(rule), archivedAt: rule.archived ? new Date() : null, createdBy: rule.createdBy, createdAt: new Date(rule.createdAt) });
       return row.id;
     },
 
@@ -354,19 +371,11 @@ export function createPgEngineStore(db: Database, organizationId: string): Engin
     },
 
     async putRule(rule: Rule) {
-      const values = {
-        type: rule.type,
-        name: rule.name,
-        enabled: rule.enabled,
-        priority: rule.priority,
-        match: rule.match,
-        conditions: rule.conditions,
-        actions: rule.actions,
-        naturalText: rule.naturalText ?? null,
-        updatedAt: new Date(),
-      };
-      const updated = await sc().update(rules, eq(rules.id, str(rule.id)), values);
-      if (!updated.length) await sc().insert(rules, { ...values, id: str(rule.id), createdBy: rule.createdBy, createdAt: new Date(rule.createdAt) });
+      const prev = await sc().first(rules, eq(rules.id, str(rule.id)));
+      // Keep the original archive time while a rule stays archived.
+      const values = { ...ruleValues(rule), archivedAt: rule.archived ? (prev?.archivedAt ?? new Date()) : null, updatedAt: new Date() };
+      if (prev) await sc().update(rules, eq(rules.id, prev.id), values);
+      else await sc().insert(rules, { ...values, id: str(rule.id), createdBy: rule.createdBy, createdAt: new Date(rule.createdAt) });
     },
 
     async removeRule(id) {

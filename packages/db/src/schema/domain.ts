@@ -20,7 +20,7 @@ import {
   vector,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import type { Condition, RuleAction } from "@folderpilot/core";
+import type { Condition, RuleAction, RuleSchedule } from "@folderpilot/core";
 import { organizations, users } from "./auth";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -118,6 +118,8 @@ export const files = pgTable(
     analyzedAt: ts("analyzed_at"),
     /** AI insight finished for the current version. */
     aiAnalyzedAt: ts("ai_analyzed_at"),
+    /** When structured rules last looked at this file (rules re-run when analysis is newer). */
+    rulesCheckedAt: ts("rules_checked_at"),
     status: fileStatus("status").notNull().default("indexed"),
     flags: text("flags").array().notNull().default(sql`'{}'::text[]`),
     /** Why a file was flagged (e.g. the agent's reason for suggested_delete). */
@@ -174,6 +176,12 @@ export const rules = pgTable(
     conditions: jsonb("conditions").$type<Condition[]>().notNull().default([]),
     actions: jsonb("actions").$type<RuleAction[]>().notNull().default([]),
     naturalText: text("natural_text"),
+    /** Limit the rule to one space (null = every space in the organization). */
+    scopeSpaceId: uuid("scope_space_id").references(() => spaces.id, { onDelete: "set null" }),
+    schedule: text("schedule").$type<RuleSchedule>().notNull().default("none"),
+    lastRunAt: ts("last_run_at"),
+    /** Rules are archived, never deleted (an archive is a plan step, so it's audited and undoable). */
+    archivedAt: ts("archived_at"),
     /** Actor string, e.g. user:<id> or agent:<userId>. */
     createdBy: text("created_by").notNull(),
     createdAt: ts("created_at").notNull().defaultNow(),

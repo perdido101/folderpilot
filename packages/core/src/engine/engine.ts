@@ -221,6 +221,22 @@ export function createEngine(opts: EngineOptions) {
     await store.updatePlan(planId, { status: "approved", approvedBy: approver.userId, approvedAt: now() });
   }
 
+  /**
+   * Approval without a person, only for plans made by a rule a person set to "auto" (spec §2). Rules can't trash, and
+   * canAutoRun() refuses trash/restore anyway. The plan keeps the rule as its actor; approvedBy stays empty.
+   */
+  async function autoApprove(planId: Id) {
+    const plan = await requirePlan(planId);
+    if (plan.status !== "pending") throw new EngineError(`This plan is already ${plan.status.replace("_", " ")}.`, "invalid_state");
+    const ruleId = plan.source === "rule" && plan.actor.startsWith("rule:") ? plan.actor.slice(5) : null;
+    const rule = ruleId ? await store.getRule(/^\d+$/.test(ruleId) ? Number(ruleId) : ruleId) : undefined;
+    if (!rule || rule.archived || !rule.enabled) throw new EngineError("Only plans from an enabled rule can run without approval.", "forbidden");
+    if (!canAutoRun(plan, { maxFiles: 0, allowMcp: false }, rule.mode ?? "suggest")) {
+      throw new EngineError(`Rule "${rule.name}" is set to suggest, so its changes need approval.`, "forbidden");
+    }
+    await store.updatePlan(planId, { status: "approved", approvedAt: now() });
+  }
+
   // ── Execution ─────────────────────────────────────────────────────────
 
   async function execute(planId: Id, run: { onProgress?: (e: ProgressEvent) => void } = {}): Promise<ExecResult> {
@@ -677,7 +693,7 @@ export function createEngine(opts: EngineOptions) {
     return execute(planId, runOpts?.onProgress ? { onProgress: runOpts.onProgress } : {});
   }
 
-  return { createPlan, keepSteps, cancel, approve, execute, run, resolveConflict, planUndo, undo, undoable };
+  return { createPlan, keepSteps, cancel, approve, autoApprove, execute, run, resolveConflict, planUndo, undo, undoable };
 }
 
 export type Engine = ReturnType<typeof createEngine>;

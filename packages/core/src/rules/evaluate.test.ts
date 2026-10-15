@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IndexedFile } from "../types";
-import { dryRun, matchesCondition, matchesRule, planAllRules, renderTemplate, stepsForFile } from "./evaluate";
+import { dryRun, isRuleDue, matchesCondition, matchesRule, planAllRules, regexProblem, renderTemplate, ruleProblem, rulesForFiles, stepsForFile } from "./evaluate";
 import type { Rule } from "./types";
 
 let id = 1;
@@ -107,5 +107,90 @@ describe("dry run and combined plans", () => {
     const steps = planAllRules([shot, inv], [images, disabled, screenshots]);
     expect(steps.filter((s) => s.action === "move").map((s) => s.to)).toEqual(["Temp/Screenshot 1.png"]);
     expect(steps.filter((s) => s.action === "tag").map((s) => s.to)).toEqual(["screenshot", "image"]);
+  });
+});
+
+describe("phase 4 conditions", () => {
+  const f = file({ name: "INV-2024-0042.pdf", path: "Inbox/INV-2024-0042.pdf", textExcerpt: "Invoice no. 42, total EUR 99", client: "Alpha Ltd", docType: "invoice", spaceId: "space-1" });
+
+  it("regex on name and content, case-insensitive", () => {
+    expect(matchesCondition(f, { field: "name", op: "matches", value: "^inv-\\d{4}-\\d+\\.pdf$" })).toBe(true);
+    expect(matchesCondition(f, { field: "content", op: "matches", value: "total\\s+eur\\s+\\d+" })).toBe(true);
+    expect(matchesCondition(f, { field: "name", op: "matches", value: "^receipt" })).toBe(false);
+  });
+
+  it("invalid or unsafe patterns never match and explain why", () => {
+    expect(matchesCondition(f, { field: "name", op: "matches", value: "([a-z" })).toBe(false);
+    expect(matchesCondition(f, { field: "name", op: "matches", value: "(a+)+$" })).toBe(false);
+    expect(regexProblem("(a+)+$")).toMatch(/Nested repetition/);
+    expect(regexProblem("x".repeat(300))).toMatch(/at most/);
+    expect(regexProblem("([a-z")).toBeTruthy();
+    expect(regexProblem("^inv")).toBeNull();
+  });
+
+  it("AI entities and the source space", () => {
+    expect(matchesCondition(f, { field: "client", op: "is", value: "alpha ltd" })).toBe(true);
+    expect(matchesCondition(f, { field: "client", op: "contains", value: "alpha" })).toBe(true);
+    expect(matchesCondition(f, { field: "docType", op: "is_not", value: "invoice" })).toBe(false);
+    expect(matchesCondition(file({}), { field: "client", op: "is", value: "alpha" })).toBe(false);
+    expect(matchesCondition(f, { field: "space", op: "is", value: "space-1" })).toBe(true);
+    expect(matchesCondition(f, { field: "space", op: "is_not", value: "space-1" })).toBe(false);
+  });
+
+  it("expands {docType}", () => {
+    expect(renderTemplate("Docs/{docType}/{client}", f)).toBe("Docs/invoice/Alpha Ltd");
+    expect(renderTemplate("{docType}", file({}))).toBe("Other documents");
+  });
+
+  it("respects scope and archived rules", () => {
+    const tagIt = rule({ conditions: [{ field: "ext", op: "is", value: "pdf" }], actions: [{ type: "tag", value: "pdf" }] });
+    expect(matchesRule(f, { ...tagIt, scopeSpaceId: "space-1" })).toBe(true);
+    expect(matchesRule(f, { ...tagIt, scopeSpaceId: "space-2" })).toBe(false);
+    expect(matchesRule(f, { ...tagIt, archived: true })).toBe(false);
+  });
+});
+
+describe("rulesForFiles", () => {
+  it("groups steps per rule with its mode, in priority order; first move wins, tags add up", () => {
+    const a = file({ name: "a.png", path: "Downloads/a.png", ext: "png", kind: "image" });
+    const b = file({ name: "b.txt", path: "b.txt", ext: "txt" });
+    const auto = rule({ name: "auto", priority: 1, mode: "auto", conditions: [{ field: "ext", op: "is", value: "png" }], actions: [{ type: "move", value: "Images" }, { type: "tag", value: "img" }] });
+    const suggest = rule({ name: "suggest", priority: 2, conditions: [{ field: "ext", op: "is", value: "png, txt" }], actions: [{ type: "move", value: "Other" }, { type: "tag", value: "seen" }] });
+    const groups = rulesForFiles([a, b], [suggest, auto]);
+    expect(groups.map((g) => [g.rule.name, g.mode])).toEqual([
+      ["auto", "auto"],
+      ["suggest", "suggest"],
+    ]);
+    expect(groups[0]!.steps.map((s) => s.action)).toEqual(["move", "tag"]);
+    // a was already moved by the auto rule: the suggest rule only tags it, and moves + tags b.
+    expect(groups[1]!.steps.map((s) => `${s.action}:${String(s.fileId) === String(a.id) ? "a" : "b"}`)).toEqual(["tag:a", "move:b", "tag:b"]);
+  });
+});
+
+describe("isRuleDue", () => {
+  it("runs scheduled rules once per interval", () => {
+    const r = { enabled: true, schedule: "daily" as const };
+    expect(isRuleDue(r, 1000)).toBe(true);
+    expect(isRuleDue({ ...r, lastRunAt: 0 }, 3_600_000)).toBe(false);
+    expect(isRuleDue({ ...r, lastRunAt: 0 }, 86_400_000)).toBe(true);
+    expect(isRuleDue({ ...r, schedule: "none" }, 1000)).toBe(false);
+    expect(isRuleDue({ ...r, archived: true }, 1000)).toBe(false);
+  });
+});
+
+describe("ruleProblem", () => {
+  const base = { type: "structured" as const, name: "R", conditions: [{ field: "ext" as const, op: "is" as const, value: "pdf" }], actions: [{ type: "tag" as const, value: "x" }] };
+  it("accepts a complete rule and explains what's missing otherwise", () => {
+    expect(ruleProblem(base)).toBeNull();
+    expect(ruleProblem({ ...base, name: " " })).toMatch(/name/);
+    expect(ruleProblem({ ...base, conditions: [] })).toMatch(/condition/);
+    expect(ruleProblem({ ...base, actions: [] })).toMatch(/action/);
+    expect(ruleProblem({ ...base, conditions: [{ field: "size", op: "contains", value: "1" }] })).toMatch(/doesn't work with size/);
+    expect(ruleProblem({ ...base, conditions: [{ field: "name", op: "matches", value: "(a*)*" }] })).toBeTruthy();
+    expect(ruleProblem({ ...base, conditions: [{ field: "ext", op: "is", value: "" }] })).toMatch(/value/);
+    expect(ruleProblem({ ...base, actions: [{ type: "flag_review", value: "" }] })).toBeNull();
+    expect(ruleProblem({ ...base, actions: [{ type: "move", value: "" }] })).toMatch(/move/);
+    expect(ruleProblem({ type: "natural", name: "N", conditions: [], actions: [] })).toMatch(/sentence/);
+    expect(ruleProblem({ type: "natural", name: "N", conditions: [], actions: [], naturalText: "Invoices go to Finance" })).toBeNull();
   });
 });
