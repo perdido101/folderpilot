@@ -16,6 +16,7 @@ import { agentRoutes } from "./routes/agent";
 import { searchRoutes } from "./routes/search";
 import { connectRoutes } from "./routes/connect";
 import { mountWebApp } from "./web-app";
+import { adminRoutes } from "./routes/admin";
 import { spaceFileRoutes } from "./routes/space-files";
 import { systemRoutes } from "./routes/system";
 
@@ -55,6 +56,7 @@ export function createApp(deps: Deps) {
   app.route("/api/orgs", agentRoutes(deps));
   app.route("/api/orgs", searchRoutes(deps));
   app.route("/api", connectRoutes(deps));
+  app.route("/api/admin", adminRoutes(deps));
   // Single-service deployments: the web app from the same origin (its own CSP, see web-app.ts).
   if (env.FP_WEB_DIST) mountWebApp(app, env.FP_WEB_DIST);
 

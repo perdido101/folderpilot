@@ -1,7 +1,7 @@
 import pino from "pino";
 import { z } from "zod";
 import { adapterForSpace } from "@folderpilot/adapters";
-import { createDb, openCredentials, parseKey, saveSpaceTokens } from "@folderpilot/db";
+import { createDb, GoogleOAuthSource, openCredentials, parseKey, saveSpaceTokens } from "@folderpilot/db";
 import { startWorker } from "./worker";
 
 const optional = z
@@ -40,6 +40,9 @@ if (!env.ENCRYPTION_KEY) {
 }
 const { db, close } = createDb(env.DATABASE_URL, { max: 10 });
 const encryptionKey = env.ENCRYPTION_KEY ? parseKey(env.ENCRYPTION_KEY) : Buffer.alloc(32);
+// Google keys from the environment, or saved by an admin in the app (re-read every 30 s).
+const google = new GoogleOAuthSource(db, encryptionKey, env, (err) => log.warn({ err: err instanceof Error ? err.message : String(err) }, "couldn't read the saved Google settings"));
+await google.start();
 const runtime = await startWorker({
   syncEveryMs: env.FP_SYNC_INTERVAL_SEC * 1000,
   redisUrl: env.REDIS_URL,
@@ -55,7 +58,7 @@ const runtime = await startWorker({
       adapterForSpace(space, {
         devSampleDir: env.FP_DEV_SAMPLE_DIR,
         production: env.NODE_ENV === "production",
-        google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tokenUrl: env.GOOGLE_TOKEN_URL, apiBase: env.GOOGLE_DRIVE_API } : null,
+        google: google.current(),
         credentials: {
           open: (s) => openCredentials(encryptionKey, { id: s.id!, credentialsEncrypted: s.credentialsEncrypted ?? null }),
           save: (s, tokens) => saveSpaceTokens(db, encryptionKey, s.id!, tokens),
@@ -68,6 +71,7 @@ log.info({ workerId: runtime.workerId }, "FolderPilot worker started");
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log.info({ signal }, "worker shutting down (finishing running jobs)");
+    google.stop();
     void runtime
       .stop()
       .then(close)

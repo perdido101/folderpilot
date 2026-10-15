@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ThemeSync } from "@/components/theme-sync";
 import { Toaster } from "@/components/toaster";
 import { MembersPage } from "@/features/admin/members-page";
+import { GoogleSetupPage } from "@/features/admin/google-setup-page";
 import { AcceptInvitePage } from "@/features/auth/accept-invite-page";
 import { CreateOrgPage } from "@/features/auth/create-org-page";
 import { SignInPage } from "@/features/auth/sign-in-page";
@@ -69,6 +70,7 @@ const router = createBrowserRouter(
         { path: "trash", element: <SpaceRoute device={<TrashPage />} phase={7} /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "admin", element: <MembersPage /> },
+        { path: "admin/google", element: <GoogleSetupPage /> },
         { path: "*", element: <NotFound /> },
       ],
     },

@@ -15,6 +15,32 @@ v2 monorepo. Work follows the 14 build phases in `CLAUDE.md` §20, one at a time
 | 8 | Connect mode: **Google Drive ✅ done** (brought forward at your request) · OneDrive/SharePoint, Dropbox | ⏭ next: OneDrive, Dropbox |
 | 9–14 | see `CLAUDE.md` §20 | — |
 
+## Google Drive setup in the app — done
+
+- **Admin → Google Drive setup** (`/admin/google`). This is a guided one-time setup:
+  - a button per step opens the right Google Cloud page (new project, Drive API, Auth Platform, Audience, create client);
+  - your exact JavaScript origin and redirect URIs are shown with Copy buttons;
+  - you paste the Client ID and secret there.
+- **The server checks the keys with Google before saving** (a token request with a dummy code: `invalid_client` =
+  wrong keys). This was verified against real Google: made-up keys are refused with a clear message.
+- **Storage:** the keys are stored AES-256-GCM-encrypted in the new `server_settings` table (migration 0008). The secret
+  is never returned.
+  - Server and worker read them through `GoogleOAuthSource`: environment first, then the app's value, re-read every
+    30 s. Replacing the keys also replaces cached Drive adapters.
+- **Who can change them:** only the server admin — `FP_ADMIN_EMAILS`, or else the first account created on the
+  server. Keys set in the environment win and can't be changed from the app.
+- **Connect a source → Google Drive** now offers "Set up Google Drive" to owners and admins when it isn't set up.
+- **Tests:** server integration +5:
+  - addresses shown;
+  - only the server admin;
+  - malformed or unknown keys refused;
+  - saved encrypted, Drive turns on, the worker sees the keys, connect uses them;
+  - remove;
+  - environment wins.
+- Browser check in production mode: setup link → page → keys checked with real Google.
+- Not covered: Sign in with Google on the sign-in page still uses keys from the environment only. Drive doesn't
+  need it.
+
 ## Online deployment — ready (one click on Render)
 
 - **One container** (`Dockerfile`): `scripts/start.mjs` applies migrations, then runs the API and the worker.

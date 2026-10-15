@@ -4,7 +4,7 @@ import type { Embedder } from "@folderpilot/ai";
 import type { AIProvider, AISettings } from "@folderpilot/ai";
 import type { StorageAdapter } from "@folderpilot/core";
 import type { Role } from "@folderpilot/core";
-import type { Database, spaces } from "@folderpilot/db";
+import type { Database, GoogleOAuthSource, spaces } from "@folderpilot/db";
 import type { Auth } from "./auth";
 import type { Env } from "./env";
 import type { Logger } from "./lib/logger";
@@ -28,6 +28,8 @@ export interface Deps {
     embedderFor(settings: AISettings): Embedder | null;
   };
   adapterFor(space: typeof spaces.$inferSelect): StorageAdapter;
+  /** The Google OAuth client for Drive: environment, else what an admin saved in the app (Admin → Google Drive). */
+  google: GoogleOAuthSource;
 }
 
 export interface SessionUser {

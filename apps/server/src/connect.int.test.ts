@@ -187,7 +187,7 @@ describe("without Google credentials", () => {
     const org = (await client.json<{ id: string }>("/api/auth/organization/create", { body: { name: "No Google", slug: "no-google" } })).body.id;
     const res = await client.json<{ error?: string; message?: string }>(`/api/orgs/${org}/connect/gdrive/start`);
     expect(res.status).toBe(409);
-    expect(JSON.stringify(res.body)).toContain("isn't configured");
+    expect(JSON.stringify(res.body)).toContain("isn't set up");
     const sys = await client.json<{ connect: { gdrive: boolean } }>("/api/config/features");
     expect(sys.body.connect.gdrive).toBe(false);
   });

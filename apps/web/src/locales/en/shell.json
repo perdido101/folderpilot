@@ -28,6 +28,7 @@
     "subtitle": "Choose where your files live. FolderPilot organizes them in place.",
     "needsSetup": "needs setup by an admin (see docs/SETUP.md)",
     "adminOnly": "only owners and admins can connect sources",
+    "setUpGdrive": "Set up Google Drive (one time, ~10 minutes) →",
     "sources": {
       "device": {
         "title": "Folder on this computer",

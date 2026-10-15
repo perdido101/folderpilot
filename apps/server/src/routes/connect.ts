@@ -11,7 +11,6 @@ import { and, eq, type SQL } from "drizzle-orm";
 import { consentUrl, exchangeCode, GoogleDriveAdapter, OAuthError, pkcePair, revokeToken, type GoogleTokens } from "@folderpilot/adapters";
 import { files, openCredentials, scoped, sealCredentials, spaces } from "@folderpilot/db";
 import type { AppEnv, Deps } from "../context";
-import { googleConfig } from "../deps";
 import { requireOrg, requirePermission } from "../middleware/auth";
 
 interface PendingConnect {
@@ -50,8 +49,8 @@ export function connectRoutes(deps: Deps) {
   };
 
   const google = () => {
-    const g = googleConfig(deps.env);
-    if (!g) throw new HTTPException(409, { message: "Google Drive isn't configured on this server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — see docs/SETUP.md §2)." });
+    const g = deps.google.current();
+    if (!g) throw new HTTPException(409, { message: "Google Drive isn't set up on this server yet. An admin can set it up in Admin → Google Drive." });
     return g;
   };
   const redirectUri = () => `${deps.env.API_URL.replace(/\/$/, "")}/api/connect/gdrive/callback`;

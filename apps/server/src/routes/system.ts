@@ -22,7 +22,11 @@ export function systemRoutes(deps: Deps) {
   });
 
   /** Public: tells the UI which integrations are configured so it can hide the rest. */
-  app.get("/config/features", (c) => c.json(features(deps.env)));
+  app.get("/config/features", (c) => {
+    const f = features(deps.env);
+    // Drive can also be set up in the app (Admin → Google Drive), not only in the environment.
+    return c.json({ ...f, connect: { ...f.connect, gdrive: Boolean(deps.google.current()) } });
+  });
 
   return app;
 }

@@ -468,3 +468,14 @@ export const notifications = pgTable(
   },
   (t) => [index("notifications_user_idx").on(t.organizationId, t.userId, t.createdAt)],
 );
+
+/**
+ * Settings of this FolderPilot server (not of one organization), e.g. the Google OAuth client an admin pasted in
+ * the app. Values are AES-256-GCM encrypted, bound to their key.
+ */
+export const serverSettings = pgTable("server_settings", {
+  key: text("key").primaryKey(),
+  valueEncrypted: text("value_encrypted").notNull(),
+  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

@@ -62,6 +62,9 @@ Your app stays in Google's “Testing” mode, so only the accounts you list can
   **Scan & analyze**.
 
 ### Steps
+> **Easiest:** in FolderPilot open **Admin → Google Drive setup**. It has a button for each step below, shows your
+> exact addresses with Copy buttons, and you paste the keys there instead of into `.env`.
+
 1. Open <https://console.cloud.google.com/> and sign in with the Google account whose Drive you want to use.
    Top bar → project picker → **New project** → name it “FolderPilot” → **Create**, then select it.
 2. **APIs & Services → Library** → search **Google Drive API** → **Enable**.

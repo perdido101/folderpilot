@@ -23,5 +23,63 @@
     "updated": "{{name}}'s role was updated.",
     "confirmRemove": "Remove {{name}} from the organization? Their files and history stay.",
     "remove": "Remove"
+  },
+  "googleLink": "Google Drive setup",
+  "google": {
+    "title": "Google Drive setup",
+    "subtitle": "A one-time setup so everyone on this FolderPilot can click “Connect Google Drive”. About 10 minutes.",
+    "back": "← Members & roles",
+    "ready": "Google Drive is ready",
+    "fromEnv": "Keys come from this server's environment.",
+    "fromApp": "Using Client ID {{clientId}}.",
+    "connectNow": "Connect Google Drive",
+    "notAdmin": "Google Drive isn't set up on this server yet. Ask the person who set up this FolderPilot server (the first account) to open Admin → Google Drive setup.",
+    "intro": "Google only lets registered apps into a Drive, so FolderPilot needs its own “OAuth client” from your Google account. Each button opens the right page in Google Cloud in a new tab; come back here after each step.",
+    "step1": {
+      "title": "Create a Google Cloud project",
+      "body": "Sign in with your Google account, name the project “FolderPilot” and click Create. Already have one? Pick it in the project list at the top and skip this step.",
+      "button": "Open: new project"
+    },
+    "step2": {
+      "title": "Turn on the Google Drive API",
+      "body": "Check the project name at the top, then click the blue Enable button.",
+      "button": "Open: Google Drive API"
+    },
+    "step3": {
+      "title": "Set up the Google sign-in screen",
+      "body": "Click Get started. App name: FolderPilot · User support email: yours → Next. Audience: External → Next. Contact information: your email → Next. Tick the agreement → Continue → Create. (If it shows an overview instead of Get started, this is already done.)",
+      "button": "Open: Google Auth Platform"
+    },
+    "step4": {
+      "title": "Add yourself as a test user",
+      "body": "Scroll to Test users → + Add users → type the Gmail address(es) whose Drive you'll connect → Save.",
+      "button": "Open: Audience"
+    },
+    "step5": {
+      "title": "Create the keys (OAuth client)",
+      "body": "Application type: Web application · Name: FolderPilot. Under Authorized JavaScript origins click + Add URI and paste the first address below. Under Authorized redirect URIs click + Add URI twice and paste the other two.",
+      "button": "Open: create client",
+      "after": "Click Create. Google shows a Client ID and a Client secret — keep that window open for the next step."
+    },
+    "step6": {
+      "title": "Paste the keys here",
+      "body": "Copy both from Google's window (you can find them again under Clients → FolderPilot). FolderPilot checks them with Google before saving."
+    },
+    "origin": "Authorized JavaScript origin",
+    "redirect": "Authorized redirect URI {{n}}",
+    "copyButton": "Copy",
+    "copied": "Copied",
+    "copy": "Copy {{label}}",
+    "copyFailed": "Couldn't copy — select the text and copy it yourself.",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "secretSaved": "Saved — paste a new one to replace it",
+    "save": "Check and save",
+    "checking": "Checking with Google…",
+    "saved": "Saved. Google Drive is ready — connect it from New → Connect a source.",
+    "savedUnverified": "Saved, but Google couldn't be reached to check the keys. Try connecting; if Google refuses, paste them again.",
+    "remove": "Remove keys",
+    "removed": "Google keys removed. Connected Drives stop syncing until new keys are saved.",
+    "note": "While the app is in Google's Testing mode, only the test users you added can connect, and Google asks them to sign in again every 7 days. Sign in with Google (on the sign-in page) still uses keys from the server environment."
   }
 }

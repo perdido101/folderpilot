@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Cloud, HardDrive, Laptop, Server, type LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, cn } from "@folderpilot/ui";
 import { chooseFolder } from "@/lib/folder-source";
@@ -36,6 +37,7 @@ export function ConnectSourceDialog({ open, onOpenChange }: { open: boolean; onO
   const features = useFeatures().data;
   const deviceOnly = useMode((s) => s.mode) === "device";
   const org = useActiveOrg();
+  const navigate = useNavigate();
   const canConnect = Boolean(org && can(org.role, "space", "create"));
 
   return (
@@ -81,6 +83,17 @@ export function ConnectSourceDialog({ open, onOpenChange }: { open: boolean; onO
                     )}
                   </span>
                 </button>
+                {s.key === "gdrive" && !configured && canConnect && features && (
+                  <button
+                    className="mt-1 ml-11 text-xs font-medium text-accent hover:underline"
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate("/admin/google");
+                    }}
+                  >
+                    {t("connect.setUpGdrive")}
+                  </button>
+                )}
               </li>
             );
           })}

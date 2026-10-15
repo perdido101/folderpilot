@@ -45,6 +45,26 @@ export async function exchangeCode(client: GoogleClient, opts: { code: string; v
   return { accessToken: body.access_token, refreshToken: body.refresh_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000, scope: body.scope ?? DRIVE_SCOPE };
 }
 
+/**
+ * Does Google know this client id + secret? Sends a token request with a made-up code: Google answers
+ * `invalid_client` for a wrong id/secret and `invalid_grant` when the client is fine (the code is fake).
+ * "unknown" when Google can't be reached — the keys may still be right.
+ */
+export async function checkClient(client: GoogleClient, redirectUri: string, fetchImpl: typeof fetch = fetch): Promise<"ok" | "invalid" | "unknown"> {
+  try {
+    const res = await fetchImpl(client.tokenUrl ?? GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "authorization_code", code: "folderpilot-key-check", redirect_uri: redirectUri, client_id: client.clientId, client_secret: client.clientSecret }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (body.error === "invalid_client" || body.error === "unauthorized_client") return "invalid";
+    return body.error === "invalid_grant" ? "ok" : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 /** Best effort: tell Google to forget the grant (disconnect). */
 export async function revokeToken(token: string, revokeUrl = GOOGLE_REVOKE_URL, fetchImpl: typeof fetch = fetch): Promise<boolean> {
   try {

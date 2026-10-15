@@ -18,15 +18,14 @@ PostgreSQL 16 with the `vector` and `unaccent` extensions, and Redis (or a Redis
    `https://folderpilot-ab12.onrender.com`. Open it, **Create account**, then create your organization.
 
 ### Connect your Google Drive online
-1. Do `docs/SETUP.md` §2 steps 1–3 (Google Cloud project, Drive API, consent screen in Testing with yourself as test user).
-2. In your OAuth client (step 4 there) add, with **your** Render address:
-   - Authorized JavaScript origin: `https://folderpilot-ab12.onrender.com`
-   - Authorized redirect URIs:
-     - `https://folderpilot-ab12.onrender.com/api/auth/callback/google`
-     - `https://folderpilot-ab12.onrender.com/api/connect/gdrive/callback`
-3. Render → `folderpilot` service → **Environment** → set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` → **Save,
-   rebuild and deploy** (a restart is enough: **Save and deploy**).
-4. In FolderPilot: **New → Connect a source → Google Drive**.
+Sign in to your FolderPilot as the **first account you created** (the server admin), then open
+**Admin → Google Drive setup** (also linked from **New → Connect a source → Set up Google Drive**). The page walks
+you through Google Cloud with a button for each step, shows your exact addresses with **Copy** buttons, and you paste
+the two keys there. FolderPilot checks them with Google before saving. Then: **New → Connect a source → Google Drive**.
+
+You don't need to touch Render's environment for this. Prefer environment variables? Set `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` on the service instead; they take precedence. `FP_ADMIN_EMAILS` (comma-separated) chooses who
+may change server-wide settings, instead of the first account.
 
 ### AI online
 - Easiest: set `ANTHROPIC_API_KEY` in the service's Environment (FolderPilot AI for everyone), or

@@ -3,7 +3,7 @@ import { Redis } from "ioredis";
 import { adapterForSpace } from "@folderpilot/adapters";
 import { createServerProvider, embedderFor, folderPilotAI, type HostedAIConfig } from "@folderpilot/ai/server";
 import { QUEUES } from "@folderpilot/core";
-import { createDb, openCredentials, parseKey, saveSpaceTokens } from "@folderpilot/db";
+import { createDb, GoogleOAuthSource, openCredentials, parseKey, saveSpaceTokens } from "@folderpilot/db";
 import { createAuth } from "./auth";
 import type { Deps } from "./context";
 import { loadEnv, type Env } from "./env";
@@ -22,7 +22,9 @@ export function createDeps(source: Record<string, string | undefined> = process.
   const indexing = new Queue(QUEUES.indexing, { connection: queueConnection, prefix: env.FP_QUEUE_PREFIX });
   const encryptionKey = parseKey(env.ENCRYPTION_KEY);
   const hosted: HostedAIConfig = { apiKey: env.ANTHROPIC_API_KEY, analysisModel: env.FP_AI_ANALYSIS_MODEL, agentModel: env.FP_AI_AGENT_MODEL };
+  const google = new GoogleOAuthSource(db, encryptionKey, env, (err) => log.warn({ err: err instanceof Error ? err.message : String(err) }, "couldn't read the saved Google settings"));
   const deps: Deps = {
+    google,
     env,
     db,
     redis,
@@ -42,7 +44,7 @@ export function createDeps(source: Record<string, string | undefined> = process.
         adapterForSpace(space, {
           devSampleDir: env.FP_DEV_SAMPLE_DIR,
           production: env.NODE_ENV === "production",
-          google: googleConfig(env),
+          google: google.current(),
           credentials: {
             open: (s) => openCredentials(encryptionKey, { id: s.id!, credentialsEncrypted: s.credentialsEncrypted ?? null }),
             save: (s, tokens) => saveSpaceTokens(db, encryptionKey, s.id!, tokens),
@@ -53,6 +55,7 @@ export function createDeps(source: Record<string, string | undefined> = process.
   return {
     deps,
     async start() {
+      await google.start();
       await redis.connect().catch((err: Error) => log.warn({ err: err.message }, "redis not reachable — rate limiting falls back to memory"));
       // BullMQ connects by itself; give it a moment, and run without queues if Redis is down.
       const ready = await Promise.race([indexing.waitUntilReady().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]).catch(() => false);
@@ -62,16 +65,11 @@ export function createDeps(source: Record<string, string | undefined> = process.
       }
     },
     async stop() {
+      google.stop();
       await indexing.close().catch(() => undefined);
       redis.disconnect();
       queueConnection.disconnect();
       await close();
     },
   };
-}
-
-/** Google OAuth client for Drive (null when GOOGLE_CLIENT_ID/SECRET aren't set: Drive stays hidden). */
-export function googleConfig(env: Env) {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) return null;
-  return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tokenUrl: env.GOOGLE_TOKEN_URL, apiBase: env.GOOGLE_DRIVE_API };
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shield, UserPlus } from "lucide-react";
 import { can, ROLES, type Role } from "@folderpilot/core";
@@ -40,6 +41,9 @@ export function MembersPage() {
         <div>
           <h1 className="font-semibold">{t("title")}</h1>
           <p className="text-xs text-muted">{t("subtitle", { org: org.name })}</p>
+          <Link to="/admin/google" className="text-xs text-accent hover:underline">
+            {t("googleLink")} →
+          </Link>
         </div>
 
         <section className="space-y-3 rounded-lg border bg-surface p-4">

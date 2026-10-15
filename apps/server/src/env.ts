@@ -49,6 +49,8 @@ const schema = z.object({
   MCP_PUBLIC_URL: optional,
   /** Development only: a folder on this machine shown as the read-only "Sample files (dev)" space. */
   FP_DEV_SAMPLE_DIR: optional,
+  /** Comma-separated emails allowed to change server-wide settings in the app (default: the first account created). */
+  FP_ADMIN_EMAILS: optional,
   /** Serve the built web app from this server (single-service deployments), e.g. apps/web/dist. */
   FP_WEB_DIST: optional,
   /** BullMQ key prefix; server and worker must match (tests use their own). */

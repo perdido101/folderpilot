@@ -53,11 +53,12 @@ export function adapterForSpace(space: SpaceRef, opts: RegistryOptions): Storage
     if (path.resolve(space.rootRef) === allowed) return new LocalServerAdapter(allowed);
   }
   if (space.adapterId === "gdrive") {
-    if (!opts.google) throw new AdapterUnavailableError("Google Drive isn't configured on this server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — see docs/SETUP.md §2).");
+    if (!opts.google) throw new AdapterUnavailableError("Google Drive isn't set up on this server yet (an admin can do it in Admin → Google Drive).");
     if (!space.rootRef) throw new AdapterUnavailableError("Choose which Google Drive folder this space should organize first.");
     const creds = opts.credentials?.open(space);
     if (!creds) throw new AdapterUnavailableError("This Google Drive space isn't connected. Reconnect it.");
-    const key = `${space.id}|${space.rootRef}|${createHash("sha256").update(creds.tokens.refreshToken).digest("hex").slice(0, 16)}`;
+    // New tokens, another folder or another Google client (an admin replaced the keys) = a fresh adapter.
+    const key = `${space.id}|${space.rootRef}|${opts.google.clientId}|${createHash("sha256").update(creds.tokens.refreshToken).digest("hex").slice(0, 16)}`;
     const hit = cache.get(key);
     if (hit) return hit;
     const google = opts.google;

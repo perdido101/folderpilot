@@ -33,6 +33,8 @@ export class MockGoogle {
   /** Issued access tokens expire after this many seconds. */
   tokenLifetime = 3600;
   account = { emailAddress: "you@example.com", displayName: "Test User" };
+  /** When set, the token endpoint refuses other client ids/secrets (invalid_client), like Google. */
+  client: { id: string; secret: string } | null = null;
   private server: http.Server | null = null;
   base = "";
 
@@ -142,6 +144,7 @@ export class MockGoogle {
     }
     if (url.pathname === "/token") {
       const p = new URLSearchParams(raw);
+      if (this.client && (p.get("client_id") !== this.client.id || p.get("client_secret") !== this.client.secret)) return this.json(res, 401, { error: "invalid_client" });
       if (p.get("grant_type") === "authorization_code") {
         const c = this.codes.get(p.get("code") ?? "");
         const challenge = createHash("sha256").update(p.get("code_verifier") ?? "").digest("base64url");
