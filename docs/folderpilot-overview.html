@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FolderPilot — Product &amp; Technical Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm 20mm 18mm; }
+  :root { --text:#1F2328; --muted:#6B7280; --accent:#0F766E; --soft:#E6F2F0; --border:#E6E4DE; --s2:#F3F2EE; --warn:#B54708; --ok:#15803D; --danger:#B42318; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Inter, "DejaVu Sans", sans-serif; color: var(--text); font-size: 10pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 4mm; color: var(--text); letter-spacing: -0.01em; }
+  h2 { font-size: 13.5pt; margin: 7mm 0 2.5mm; color: var(--accent); break-after: avoid; }
+  h3 { font-size: 11pt; margin: 5mm 0 1.5mm; break-after: avoid; }
+  h4 { font-size: 10pt; margin: 3.5mm 0 1mm; break-after: avoid; color: var(--text); }
+  p { margin: 0 0 2.2mm; }
+  ul, ol { margin: 0 0 2.5mm; padding-left: 5.5mm; }
+  li { margin: 0 0 1mm; }
+  code, .mono { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 8.6pt; background: var(--s2); padding: 0 1mm; border-radius: 1mm; }
+  pre { font-family: "DejaVu Sans Mono", monospace; font-size: 8pt; background: var(--s2); border: 1px solid var(--border); border-radius: 2mm; padding: 3mm; white-space: pre-wrap; break-inside: avoid; margin: 0 0 3mm; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 8.8pt; break-inside: auto; }
+  th, td { border: 1px solid var(--border); padding: 1.4mm 2mm; text-align: left; vertical-align: top; }
+  th { background: var(--s2); font-weight: 600; }
+  tr { break-inside: avoid; }
+  .chapter { break-before: page; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.6pt; }
+  .callout { border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--soft); border-radius: 2mm; padding: 3mm 4mm; margin: 2mm 0 4mm; break-inside: avoid; }
+  .callout.warn { border-left-color: var(--warn); background: #FFF6ED; }
+  .callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+  .tag { display: inline-block; font-size: 7.5pt; font-weight: 600; border-radius: 99px; padding: 0.2mm 2mm; border: 1px solid var(--border); white-space: nowrap; }
+  .done { color: var(--ok); border-color: #BBE5C8; background: #EEF9F1; }
+  .next { color: var(--accent); border-color: #B9DDD8; background: var(--soft); }
+  .todo { color: var(--muted); background: var(--s2); }
+  .partial { color: var(--warn); border-color: #F6D3B5; background: #FFF6ED; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .card { border: 1px solid var(--border); border-radius: 2mm; padding: 3mm 3.5mm; break-inside: avoid; }
+  .card h4 { margin-top: 0; }
+  /* Cover */
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .brand { display: flex; align-items: center; gap: 3mm; font-weight: 700; font-size: 14pt; color: var(--accent); }
+  .cover .logo { width: 11mm; height: 11mm; border-radius: 2.5mm; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .cover h1 { font-size: 34pt; line-height: 1.1; margin-top: 30mm; }
+  .cover .sub { font-size: 13pt; color: var(--muted); max-width: 150mm; }
+  .cover .meta { font-size: 9pt; color: var(--muted); border-top: 1px solid var(--border); padding-top: 4mm; }
+  .toc ol { padding-left: 6mm; columns: 1; }
+  .toc li { margin-bottom: 1.4mm; }
+  .diagram { border: 1px solid var(--border); border-radius: 2mm; padding: 4mm; margin: 2mm 0 4mm; break-inside: avoid; background: #fff; }
+  .flow { display: flex; align-items: stretch; gap: 2mm; flex-wrap: nowrap; }
+  .flow .box { flex: 1; border: 1px solid var(--border); border-radius: 2mm; padding: 2mm; text-align: center; font-size: 8.4pt; background: var(--s2); }
+  .flow .box b { display: block; color: var(--accent); font-size: 8.8pt; }
+  .flow .arrow { align-self: center; color: var(--muted); font-size: 12pt; }
+  .stack { display: grid; gap: 2mm; }
+  .layer { border: 1px solid var(--border); border-radius: 2mm; padding: 2mm 3mm; font-size: 8.6pt; }
+  .layer b { color: var(--accent); }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; }
+  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2mm; }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────── COVER ───────────────────────── -->
+<section class="cover">
+  <div>
+    <div class="brand"><div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m9 13 2 2 4-4"/></svg></div>FolderPilot</div>
+    <h1>Product &amp; Technical Overview</h1>
+    <p class="sub">Everything about FolderPilot in one place: what it is, every feature built so far, how it is built and hosted, how to use and test it, and everything that is still open — including topics we haven't discussed yet.</p>
+  </div>
+  <div class="meta">
+    <p><b>Status:</b> Phases 1–6 complete · Google Drive (Connect mode) complete · online deployment ready (Render) · in-app Google Drive setup complete.<br />
+    <b>Next:</b> OneDrive/SharePoint and Dropbox (rest of phase 8), then phase 7 (FolderPilot Cloud).<br />
+    <b>Repository:</b> github.com/perdido101/folderpilot (branch <span class="mono">main</span>) · <b>Version of this document:</b> November 2026</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── CONTENTS ───────────────────────── -->
+<section class="chapter toc">
+  <h1>Contents</h1>
+  <ol>
+    <li>Executive summary</li>
+    <li>What FolderPilot is — the problem, the customers, the three modes</li>
+    <li>Non-negotiable principles</li>
+    <li>Status at a glance — the 14 build phases</li>
+    <li>Feature tour — everything that works today
+      <ol type="a" class="small">
+        <li>Accounts, organizations and roles</li><li>Spaces and file sources</li><li>The action &amp; plan engine (approve, audit, undo)</li><li>Local analysis (duplicates and bad files)</li><li>The AI layer</li><li>Rules</li><li>The agent</li><li>Search</li><li>Google Drive (Connect mode)</li><li>Admin → Google Drive setup</li><li>User interface</li>
+      </ol>
+    </li>
+    <li>Architecture and infrastructure</li>
+    <li>Data model</li>
+    <li>Security and privacy</li>
+    <li>Hosting and deployment</li>
+    <li>Configuration reference</li>
+    <li>Quality: tests and CI</li>
+    <li>How to use and test it (step by step)</li>
+    <li>What's not built yet — the remaining phases in detail</li>
+    <li>What we haven't discussed yet — open topics and decisions</li>
+    <li>Known limitations</li>
+    <li>Recommended next steps</li>
+    <li>Glossary</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────── 1 ───────────────────────── -->
+<section class="chapter">
+  <h1>1. Executive summary</h1>
+  <p><b>FolderPilot organizes, finds and cleans files.</b> You talk to an AI agent in plain language ("put all invoices from Alpha in a folder per year"), set rules, and FolderPilot detects duplicates and bad files, writes captions, and lets you search by meaning. Every change is shown first as a <b>plan</b> that a person approves; everything is logged and can be undone; and the AI can <b>never delete</b> anything.</p>
+  <p>It is aimed first at <b>small offices</b> — agencies, accountants, law firms — and later at consumers. It works in three ways (modes) with the same interface: on files where they already live (<b>Connect</b>: Google Drive, OneDrive, Dropbox), on FolderPilot's own storage (<b>Cloud</b>), or entirely inside the customer's own systems (<b>Private</b>).</p>
+
+  <h3>Where things stand</h3>
+  <div class="grid2">
+    <div class="card"><h4>Built and tested</h4>
+      <ul class="small">
+        <li>Monorepo, database, accounts, organizations and roles</li>
+        <li>Plan → approve → execute engine, append-only audit log, undo, conflict checks, recoverable trash</li>
+        <li>Local analysis: exact and near-duplicates, blurry/dark/tiny photos, screenshots, EXIF, text extraction</li>
+        <li>AI layer with six provider options, Needs Review, caching, budgets</li>
+        <li>Rules (structured and plain-language), suggest/auto modes, schedules, dry-runs</li>
+        <li>Streaming AI agent with 11 tools and Plan Cards (no delete tool)</li>
+        <li>Hybrid search (words + meaning), filters, chips</li>
+        <li>Google Drive: connect, choose a folder, sync, really move/rename/trash with approval and undo</li>
+        <li>One-click online deployment (Render) and in-app Google setup</li>
+      </ul>
+    </div>
+    <div class="card"><h4>Still to build</h4>
+      <ul class="small">
+        <li>OneDrive/SharePoint and Dropbox</li>
+        <li>FolderPilot Cloud (own storage, uploads, sharing, versions)</li>
+        <li>Private mode server (self-hosted Docker on a NAS)</li>
+        <li>MCP server (let other AI apps use FolderPilot)</li>
+        <li>Billing (Stripe) and full admin pages</li>
+        <li>Desktop app (tray, mini window, Explorer menu)</li>
+        <li>Windows sync drive</li>
+        <li>Hardening: performance at 100k files, security review, polish</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>In numbers</h3>
+  <table>
+    <tr><th>Item</th><th>Today</th></tr>
+    <tr><td>Source code</td><td>≈ 29,000 lines of TypeScript across 3 apps and 6 packages</td></tr>
+    <tr><td>Automated tests</td><td>256 unit tests · 95 integration tests (real Postgres + Redis) · 14 browser end-to-end tests</td></tr>
+    <tr><td>Database</td><td>PostgreSQL 16 with pgvector · 24 tables · 9 migrations</td></tr>
+    <tr><td>AI providers supported</td><td>FolderPilot AI (Anthropic Claude), your own Claude API key, Amazon Bedrock, Google Vertex AI, any OpenAI-compatible endpoint, Ollama (local)</td></tr>
+    <tr><td>File sources working</td><td>Folder on this computer (browser) · Google Drive · developer sample folder (server, read-only)</td></tr>
+  </table>
+</section>
+
+<!-- ───────────────────────── 2 ───────────────────────── -->
+<section class="chapter">
+  <h1>2. What FolderPilot is</h1>
+  <h2>The problem</h2>
+  <p>Small businesses drown in files: invoices named <span class="mono">scan_0042.pdf</span>, five copies of the same contract, holiday photos mixed with receipts, shared drives nobody dares to clean. Tidying them takes hours, and existing tools either only search, or "clean" by deleting things — which nobody trusts.</p>
+  <h2>The answer</h2>
+  <ul>
+    <li><b>Understands files</b> — reads names, dates, short text and small previews, and works out category (invoice, contract, photo…), client, date, amount and document type, plus a caption and a suggested name.</li>
+    <li><b>Proposes, never acts alone</b> — every change is a plan you see before anything happens ("Move 37 files into Invoices/2025 · before → after").</li>
+    <li><b>Talk or set rules</b> — ask the agent in plain language, or write rules ("IF category is Invoices THEN move to Invoices/{year}/{client}").</li>
+    <li><b>Finds clutter</b> — exact duplicates, look-alike photos, blurry/dark/tiny images, screenshots; suggests which copy to keep.</li>
+    <li><b>Finds things</b> — "the signed NDA with Alpha" works even if those words aren't in the file name.</li>
+    <li><b>Safe by design</b> — audit log of everything, undo per action or batch, recoverable trash, and the AI has no delete capability at all.</li>
+  </ul>
+  <h2>Who it's for</h2>
+  <p><b>B2B first:</b> small offices, agencies, accountants, law firms — teams of 2–50 people with shared folders. Roles (owner, admin, editor, viewer) and approvals fit how they work. <b>Consumers second:</b> one person tidying their own Drive or photo folders.</p>
+
+  <h2>One product, three modes</h2>
+  <table>
+    <tr><th style="width:18%">Mode</th><th>Where files live</th><th>What FolderPilot stores</th><th style="width:16%">Status</th></tr>
+    <tr><td><b>Connect</b></td><td>Where they already are: Google Drive, OneDrive/SharePoint, Dropbox</td><td>Only metadata, its analysis and the search index — never the files</td><td><span class="tag done">Google Drive done</span><br /><span class="tag next">OneDrive, Dropbox next</span></td></tr>
+    <tr><td><b>Cloud</b></td><td>FolderPilot's own storage (S3-compatible: Cloudflare R2, Backblaze B2, Hetzner); upload by web, desktop app or an Explorer sync drive</td><td>The files themselves (encrypted at rest by the provider), versions, shares</td><td><span class="tag todo">Phase 7</span></td></tr>
+    <tr><td><b>Private</b></td><td>Never leave the customer: (a) one person, a folder on their computer, in the browser or desktop app; (b) a self-hosted FolderPilot server (Docker) on the office network pointing at a NAS or file share</td><td>Everything stays inside; AI is local (Ollama) or the customer's own AI endpoint</td><td><span class="tag done">(a) in the browser works</span><br /><span class="tag todo">(b) Phase 9</span></td></tr>
+  </table>
+  <p>The same interface and the same engine serve all three; only the "storage adapter" underneath changes (see chapter 6).</p>
+</section>
+
+<!-- ───────────────────────── 3 ───────────────────────── -->
+<section class="chapter">
+  <h1>3. Non-negotiable principles</h1>
+  <p>These six rules from the product spec shape every feature and are enforced in code, not just in the UI.</p>
+  <table>
+    <tr><th style="width:26%">Principle</th><th>What it means</th><th style="width:30%">How it is enforced</th></tr>
+    <tr><td><b>1. The AI can never delete</b></td><td>No delete tool exists anywhere — not in the agent, not in the MCP server. The AI may only <i>flag</i> files "suggested for deletion". Only a person trashes files, and trash is recoverable (FolderPilot's trash or the provider's own trash; default retention 30 days).</td><td>The engine rejects trash/restore in plans from agents, rules and MCP clients at creation, approval and execution. A type-level test proves the storage interface has no delete method.</td></tr>
+    <tr><td><b>2. Plan → Approve → Execute</b></td><td>Every change by agent, rule, MCP client or bulk action is first a plan (before/after, file count). Nothing changes until someone with permission approves. Admins may allow auto-run for small agent plans (off by default) and for rules explicitly set to "auto".</td><td>The engine is the only code path that changes files; it checks the approver's role and the plan's status.</td></tr>
+    <tr><td><b>3. Everything audited and reversible</b></td><td>Append-only audit log; undo per action, per batch, or "everything the agent did since…". Undo checks if a file changed meanwhile and asks instead of overwriting.</td><td>A database trigger blocks UPDATE/DELETE on <span class="mono">audit_events</span>. Undo writes new events.</td></tr>
+    <tr><td><b>4. Privacy by mode</b></td><td>The AI only ever receives thumbnails (≤512 px) or extracted text, never whole files. In Private mode nothing leaves the customer's environment except to the AI endpoint they chose. Customer files are never used for training.</td><td>Analysis code produces thumbnails/text excerpts before any AI call; logs never contain file contents.</td></tr>
+    <tr><td><b>5. Tenant isolation</b></td><td>Every query is limited to one organization. Tokens and keys are encrypted at rest.</td><td>A single scoped data-access layer; AES-256-GCM with keys bound to their owner (space, org or server).</td></tr>
+    <tr><td><b>6. Simple, calm UI</b></td><td>"Clean Ledger" theme, light and dark; familiar cloud-drive conventions with FolderPilot's own look.</td><td>Shared design tokens and components (<span class="mono">packages/ui</span>).</td></tr>
+  </table>
+</section>
+
+<!-- ───────────────────────── 4 ───────────────────────── -->
+<section class="chapter">
+  <h1>4. Status at a glance</h1>
+  <p>The spec divides the work into 14 phases. After each one: the app runs, tests pass, PROGRESS.md is updated and the code is committed. At your request, Google Drive (part of phase 8) was brought forward before phase 7 so you can try FolderPilot on your own Drive.</p>
+  <table>
+    <tr><th style="width:5%">#</th><th style="width:28%">Phase</th><th>Scope</th><th style="width:15%">Status</th></tr>
+    <tr><td>1</td><td>Monorepo + foundations</td><td>Turborepo, packages, database schema + migrations, Better Auth with organizations/roles, Hono API, web shell with theme/i18n/layout, docker-compose for development, CI. The earlier one-person prototype was migrated in.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>2</td><td>Core engine</td><td>StorageAdapter interface, plan engine, append-only audit, undo, trash/restore, conflict checks; the "folder on this computer" adapter.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>3</td><td>Analysis + AI</td><td>Analysis package (browser + server), background worker (BullMQ), AI providers, insight pipeline, Needs Review, Duplicates &amp; Bad Files with review mode.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>4</td><td>Rules</td><td>Structured rule builder, plain-language rules, dry-run, auto/suggest modes, triggers and schedules.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>5</td><td>Agent</td><td>Tools, streaming chat, Plan Cards, Pending Approvals, command palette, mini mode.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>6</td><td>Search</td><td>Full-text + pgvector hybrid, filters, search page.</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>7</td><td>Cloud mode</td><td>Own storage, uploads, previews, versions, share links, quotas, virus scanning.</td><td><span class="tag todo">After phase 8</span></td></tr>
+    <tr><td>8</td><td>Connect mode</td><td>Google Drive, OneDrive/SharePoint, Dropbox adapters, OAuth, change sync, webhooks.</td><td><span class="tag partial">Drive done</span><br /><span class="tag next">Next</span></td></tr>
+    <tr><td>9</td><td>Private mode</td><td>Server-folder adapter (NAS/SMB), self-host Docker bundle, license key, per-space AI override.</td><td><span class="tag todo">Planned</span></td></tr>
+    <tr><td>10</td><td>MCP server</td><td>Let Claude Desktop, Claude Code, ChatGPT-style and local-LLM apps use FolderPilot (no delete, no approve).</td><td><span class="tag todo">Planned</span></td></tr>
+    <tr><td>11</td><td>Billing + admin</td><td>Stripe plans, metering, feature gates, admin pages, audit export, GDPR export/delete.</td><td><span class="tag todo">Planned</span></td></tr>
+    <tr><td>12</td><td>Desktop app</td><td>Tauri tray app + mini window, global shortcut, local folders, uploader, Explorer context menu, local MCP.</td><td><span class="tag todo">Planned</span></td></tr>
+    <tr><td>13</td><td>Windows sync drive</td><td>FolderPilot as a drive in Explorer with on-demand files, two-way sync (behind a feature flag).</td><td><span class="tag todo">Planned</span></td></tr>
+    <tr><td>14</td><td>Hardening</td><td>Full E2E suite, 100k-file performance, security review, onboarding polish, docs.</td><td><span class="tag todo">Planned</span></td></tr>
+  </table>
+  <h3>Extra work done along the way</h3>
+  <ul>
+    <li><b>Search improvements:</b> plural folding ("invoices" finds "invoice") and previews of server files.</li>
+    <li><b>Online deployment:</b> one container, a Render blueprint and a "Deploy to Render" button.</li>
+    <li><b>Admin → Google Drive setup:</b> a guided page so Google keys are pasted in the app instead of server settings.</li>
+    <li><b>Fixes found by testing production:</b> production bundles crashing on start, migrations running inside the worker, a space showing "Working…" whenever any other space was scanning.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 5 ───────────────────────── -->
+<section class="chapter">
+  <h1>5. Feature tour — everything that works today</h1>
+
+  <h2>5a. Accounts, organizations and roles</h2>
+  <ul>
+    <li><b>Sign-up / sign-in</b> with email and password (Better Auth). "Continue with Google" and "Continue with Microsoft" appear when their keys are configured. Sessions last 14 days.</li>
+    <li><b>Organizations</b> — every account belongs to one or more organizations (e.g. "Demo Office"); an org switcher sits in the top bar. Invitations by email link (7 days valid).</li>
+    <li><b>Roles</b> — owner, admin, editor, viewer. Non-members get "not found" (not "forbidden"), so organization ids can't be probed.</li>
+    <li><b>"This device" mode</b> — FolderPilot also works with no account at all, in the browser, on a folder of your computer (Private mode for one person).</li>
+  </ul>
+  <table class="small">
+    <tr><th>Permission</th><th>Owner</th><th>Admin</th><th>Editor</th><th>Viewer</th></tr>
+    <tr><td>View files, search, audit log</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Propose plans (incl. via agent)</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Approve plans, organize files</td><td>✓</td><td>✓</td><td>✓</td><td>—</td></tr>
+    <tr><td>Trash / restore files</td><td>✓</td><td>✓</td><td>✓</td><td>—</td></tr>
+    <tr><td>Manage rules (only admins can make a rule "auto")</td><td>✓</td><td>✓</td><td>✓ (suggest only)</td><td>—</td></tr>
+    <tr><td>Connect / disconnect sources, settings, AI provider</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+    <tr><td>Members, invitations</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+    <tr><td>Billing, delete organization, grant owner</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+  </table>
+  <p class="small muted">Separately, a <b>server admin</b> (the first account created on a server, or the emails in <span class="mono">FP_ADMIN_EMAILS</span>) may change server-wide settings such as the Google keys.</p>
+
+  <h2>5b. Spaces and file sources</h2>
+  <p>A <b>space</b> is one connected source of files — a Google Drive folder, a folder on this computer, a server folder. Each space shows its mode badge in the sidebar and has its own files, review list, duplicates, approvals and audit log.</p>
+  <table>
+    <tr><th style="width:26%">Source</th><th>How it works</th><th style="width:16%">Writes?</th></tr>
+    <tr><td>Folder on this computer</td><td>In Chrome/Edge via the File System Access API: drag a folder in or pick one. Moves are real moves on disk (copy + verify + remove fallback); trash is a hidden <span class="mono">.folderpilot-trash</span> folder. Index kept in the browser (IndexedDB). Files never leave the computer.</td><td>Yes</td></tr>
+    <tr><td>Google Drive</td><td>See 5i. Approved plans really move, rename and trash files in Drive.</td><td>Yes</td></tr>
+    <tr><td>Sample files (dev)</td><td>A folder on the server (development only) used to try the server pipeline. Read-only until phase 9.</td><td>No</td></tr>
+    <tr><td>FolderPilot Cloud · OneDrive · Dropbox · company server</td><td>Shown in "Connect a source" with the phase that brings them; hidden behind "needs setup" until configured.</td><td>Later</td></tr>
+  </table>
+
+  <h2>5c. The action &amp; plan engine</h2>
+  <p>The heart of FolderPilot (<span class="mono">packages/core</span>): the <b>only</b> code that changes files.</p>
+  <div class="diagram">
+    <div class="flow">
+      <div class="box"><b>Propose</b>agent, rule, person, MCP</div><div class="arrow">→</div>
+      <div class="box"><b>Plan</b>steps with before → after, file count</div><div class="arrow">→</div>
+      <div class="box"><b>Approve</b>person with permission (or auto rule / small auto-run)</div><div class="arrow">→</div>
+      <div class="box"><b>Execute</b>in batches, version-checked, resumable</div><div class="arrow">→</div>
+      <div class="box"><b>Audit + Undo</b>one event per step; inverse plan</div>
+    </div>
+  </div>
+  <ul>
+    <li><b>Step types:</b> move, rename, create folder, tag/untag, caption, set category, flag/unflag, trash (people only), restore (people only).</li>
+    <li><b>Statuses:</b> plans are pending → approved → executing → executed / partially failed / cancelled; steps are pending / done / failed / conflicted / skipped. A plan can be edited before approval (untick steps).</li>
+    <li><b>Conflict checks:</b> each file step remembers the file version it was planned against. If the file changed or disappeared, the step is marked <i>conflicted</i> and nothing is overwritten; you choose <b>Skip</b> or <b>Apply to the current file</b>. Moves never overwrite: a taken name becomes "name (2)".</li>
+    <li><b>Crash-safe:</b> the index change, the audit event and the step status are written in one database transaction; re-running skips finished steps and recognizes a move that already happened.</li>
+    <li><b>Undo:</b> one event, one batch, or "everything the agent did since …". Undo writes new audit events pointing at the ones it reverses; undo of an undo is refused; undo refuses to overwrite files changed since.</li>
+    <li><b>Trash bookkeeping:</b> original path, who trashed it, kept until (30 days default).</li>
+  </ul>
+
+  <h2>5d. Local analysis — no AI cost</h2>
+  <p>One analyzer (<span class="mono">packages/analysis</span>) runs in the browser (Web Workers) and on the server (worker service).</p>
+  <div class="grid2">
+    <div class="card"><h4>What it computes per file</h4><ul class="small">
+      <li>SHA-256 hash (exact duplicates; partial hash for files over 256 MB)</li>
+      <li>dHash perceptual hash (near-duplicates: Hamming distance ≤ 6, configurable)</li>
+      <li>Blur score (contrast-normalized Laplacian), brightness</li>
+      <li>Width/height, tiny-image check, screenshot heuristic</li>
+      <li>EXIF (camera, date taken, location data)</li>
+      <li>Text excerpt: TXT/CSV/MD, DOCX (mammoth), PDF first pages (pdf.js), Google Docs/Sheets/Slides via export</li>
+    </ul></div>
+    <div class="card"><h4>What you see</h4><ul class="small">
+      <li><b>Duplicates &amp; Bad Files</b> page: exact-copy groups, look-alike groups, blurry/dark/tiny/screenshots</li>
+      <li><b>"Keep best"</b> suggestion per group (resolution, sharpness, name, date)</li>
+      <li><b>Review mode</b>: one by one, ← trash / → keep, Esc to stop</li>
+      <li>"Trash the copies" button — a human action, recoverable</li>
+      <li>Verified on a 537-file messy sample: 70 copy groups, 6 burst-photo groups, 17 blurry, 10 dark, 15 tiny, 81 screenshots, in about 11 seconds</li>
+    </ul></div>
+  </div>
+
+  <h2>5e. The AI layer</h2>
+  <p>One interface (<span class="mono">packages/ai</span>) with four jobs: describe an image (from a ≤512 px thumbnail), describe text, chat with tools (streaming), and make embeddings for search by meaning.</p>
+  <table class="small">
+    <tr><th style="width:28%">Provider</th><th>Use</th></tr>
+    <tr><td><b>FolderPilot AI</b> (default, hosted)</td><td>Anthropic Claude through the server's key: a small fast model for file analysis, a stronger model for the agent. Shown only when <span class="mono">ANTHROPIC_API_KEY</span> is set.</td></tr>
+    <tr><td><b>Your Claude</b> — Claude API, Amazon Bedrock, Google Vertex AI</td><td>The organization's own cloud account and key.</td></tr>
+    <tr><td><b>OpenAI-compatible</b></td><td>Azure OpenAI, gateways, LM Studio, vLLM, etc.</td></tr>
+    <tr><td><b>Ollama</b> (local)</td><td>For Private mode: nothing leaves the network.</td></tr>
+  </table>
+  <ul>
+    <li><b>FileInsight</b> per file: category, tags, caption, suggested name, entities (client, date, amount, document type), confidence and a reason. Strict JSON validated by zod; output always English.</li>
+    <li><b>Needs Review:</b> anything below the confidence threshold (default 0.6) is never guessed — it lands in Needs Review with Accept / Set category. A manual recategorization offers <b>"Make this a rule?"</b>.</li>
+    <li><b>Prompt context:</b> the organization's categories and active plain-language rules are included.</li>
+    <li><b>Cost controls:</b> per-organization monthly AI budget (default 1,000 files) with a usage meter; results cached by content hash (same file = no second AI call); every call recorded in <span class="mono">ai_usage</span>.</li>
+    <li><b>Settings → AI for your organization</b> (admins): pick provider, write-only keys ("saved — type to replace"), budget, <b>Test connection</b>. Keys are encrypted and bound to the organization.</li>
+    <li><b>AI status pill</b> in the top bar: "FolderPilot AI", "Local AI", "Your cloud: …" or "AI off".</li>
+  </ul>
+
+  <h2>5f. Rules</h2>
+  <ul>
+    <li><b>Structured rules:</b> IF conditions THEN actions. Conditions: file type, extension, name/content contains, regular expression (validated for safety), date range, size, folder, AI category, client, document type, has flag, source space. Actions: move to a path with variables <span class="mono">{year} {month} {category} {client} {docType}</span>, rename by pattern, tag, caption, flag for review, set category.</li>
+    <li><b>Plain-language rules:</b> free text ("Anything from the tax office goes to Taxes") that's added to the AI's context; <b>Convert to structured</b> asks the AI to turn it into a rule, shown as a proposal you can edit.</li>
+    <li><b>Order:</b> structured rules by priority → plain-language rules via the AI → AI default. First matching move wins; tags add up.</li>
+    <li><b>Mode per rule:</b> <i>Suggest</i> (creates plans in Pending Approvals) or <i>Auto</i> (applies by itself — still audited as <span class="mono">rule:&lt;id&gt;</span> and undoable). Only admins can make a rule Auto; rules can never trash.</li>
+    <li><b>Scope</b> (all spaces or one), <b>schedule</b> (on new/changed files only, hourly, daily, weekly), reorder, pause, archive (rules are never deleted — archiving is itself audited and undoable).</li>
+    <li><b>Test rule</b> dry-run: affected count and the first 10 before → after changes; nothing changes.</li>
+    <li><b>Triggers:</b> after files are analyzed (new/changed), "Run on folder", "Run all", and a 15-minute schedule tick on the server. On "This device" they run while the app is open.</li>
+  </ul>
+
+  <h2>5g. The agent</h2>
+  <p>A streaming chat in the right-hand panel, in mini mode, and from the command palette (Ctrl/⌘+K → "Ask the agent: …"). Always answers in English.</p>
+  <table class="small">
+    <tr><th style="width:30%">Tool</th><th>What it does</th></tr>
+    <tr><td>search_files, list_files, get_file</td><td>Find and inspect files (uses the hybrid search).</td></tr>
+    <tr><td>explain_categorization</td><td>Why a file got its category (rule, AI reason, person).</td></tr>
+    <tr><td>propose_plan</td><td>Moves, renames, tags… returned as a Plan Card: summary, count, before/after, Approve / Edit / Cancel.</td></tr>
+    <tr><td>propose_rule, update_rule_proposal</td><td>Draft or revise rules (always Suggest mode).</td></tr>
+    <tr><td>flag_for_deletion</td><td>Only flags files "suggested for deletion" for a person to review.</td></tr>
+    <tr><td>propose_undo</td><td>Undo a batch, or everything the agent did since a time.</td></tr>
+    <tr><td>get_audit(filter), stats(question)</td><td>Who changed what; counts and aggregates ("how many invoices from 2024?").</td></tr>
+  </table>
+  <ul>
+    <li><b>No delete, trash or approve tool</b> — asking for one gets "there is no delete tool".</li>
+    <li>Text streams as it's written; each tool call shows as a line with a spinner, then a result ("Found 3 files"); <b>Stop</b> and <b>New conversation</b> buttons.</li>
+    <li>Scoped to what the person may access; viewers can propose but not approve.</li>
+    <li><b>Auto-run for small plans</b> (spec §2): admins can let small agent plans run without approval (off by default). Rule changes, trash and restore always need a person.</li>
+    <li><b>Every tool call is logged</b> (tool, short input summary — never file contents — success, duration) and visible in <b>Audit Log → Agent activity</b>.</li>
+    <li>Works without an AI too: on "This device" it falls back to keyword search.</li>
+  </ul>
+
+  <h2>5h. Search</h2>
+  <ul>
+    <li><b>Hybrid:</b> Postgres full-text search (name, path, caption, tags, extracted text, client/document type — weighted, accent-insensitive, prefix matching while typing, plurals folded) <b>plus</b> pgvector similarity ("by meaning"), merged with reciprocal-rank fusion. Each result says whether it matched by words, by meaning or both.</li>
+    <li><b>Natural queries become chips:</b> "invoices from Alpha 2025 pdf" → words + year 2025 + .pdf; kind words (photos, documents, spreadsheets), flag words (screenshots, duplicates, blurry), relative dates (today, last week, this year). Each chip can be removed with ×.</li>
+    <li><b>Filters with counts:</b> type, modified date, category, space, flag, client.</li>
+    <li><b>Results</b> show name, space, path, date, category, a highlighted snippet and a "by meaning" badge; open a preview (images, PDF, text, video, audio) with Download and "Show in its space".</li>
+    <li><b>Search by meaning</b> needs an embedding model: the organization's AI if it can embed, else the server's Ollama, else words only (and the page says so). Vectors record which model made them; only same-model vectors are compared.</li>
+    <li>Measured: 40–125 ms per search on the 537-file sample.</li>
+  </ul>
+
+  <h2>5i. Google Drive (Connect mode)</h2>
+  <ol>
+    <li><b>New → Connect a source → Google Drive</b> (owners and admins). Google's consent screen asks for Drive access (OAuth with PKCE; a single-use, 10-minute state token tied to the person who started).</li>
+    <li><b>Choose a folder:</b> browse My Drive, "Use this folder" or "Use all of My Drive", name the space; the first scan starts.</li>
+    <li><b>Scan and analyze:</b> files appear and are analyzed. Google Docs/Sheets/Slides are read as their text/CSV export (shown as <span class="mono">.gdoc .gsheet .gslides</span>); thumbnails come from Drive.</li>
+    <li><b>Organize:</b> approved plans really move (<span class="mono">addParents/removeParents</span>), rename, and trash into <b>Drive's own trash</b>. Undo puts things back. An edit made in Drive since the plan was made is a conflict, never overwritten.</li>
+    <li><b>Sync:</b> the first scan is a full listing; afterwards FolderPilot reads Drive's change feed every 5 minutes (or on "Scan &amp; analyze") and applies only what changed. Moved files keep their analysis; edited files are re-analyzed.</li>
+    <li><b>Reconnect:</b> if Google stops accepting the access (revoked, or the 7-day limit in Testing mode), the space shows a banner with <b>Reconnect</b>; the space and its analysis are kept.</li>
+    <li><b>Space settings</b> (⚙ in the header): rename, change folder (restarts that space's index), <b>Disconnect</b> — removes the space from FolderPilot and revokes access; <b>never touches your Drive</b>.</li>
+    <li><b>Quick look</b> on any file: preview, Download, <b>Open in Google Drive</b>.</li>
+  </ol>
+  <p class="small muted">Technical: plain HTTPS to Drive API v3 (no SDK); tokens refreshed automatically before expiry and on 401; backoff with jitter on rate limits and 5xx; shared drives supported; a file's version is its MD5 (or modified time for Google Docs), so moves/renames are never mistaken for edits; tokens stored AES-256-GCM-encrypted and bound to the space.</p>
+
+  <h2>5j. Admin → Google Drive setup</h2>
+  <p>A guided, one-time page (<span class="mono">/admin/google</span>, also linked from "Connect a source") for the server admin:</p>
+  <ul>
+    <li>Six numbered steps, each with a button that opens the exact Google Cloud page (new project, Drive API, Google Auth Platform, Audience/test users, create OAuth client).</li>
+    <li>The server's exact <b>JavaScript origin</b> and two <b>redirect URIs</b> with Copy buttons.</li>
+    <li>Paste the Client ID and secret → <b>Check and save</b>: the server asks Google whether the keys are valid before saving (verified against real Google). Stored encrypted; the secret is never shown again.</li>
+    <li>Keys set in the server environment take precedence and can't be changed from the app.</li>
+  </ul>
+
+  <h2>5k. User interface</h2>
+  <ul>
+    <li><b>Layout:</b> left sidebar (New: Upload / New folder / Connect source; Spaces with mode badges and warning icons; Needs Review with badge, Recent, All Files, Categories, Duplicates &amp; Bad Files, Rules, Pending Approvals, Audit Log, Shared, Trash, Settings, Admin); center (breadcrumbs, grid/list, multi-select with floating action bar, quick look with Space, drop-zone empty state); right panel (Agent and Details tabs, collapsible); top bar (hybrid search, AI status pill, notifications, shortcuts, theme, panel toggle, org switcher).</li>
+    <li><b>Command palette</b> (Ctrl/⌘+K), keyboard shortcuts with a "?" overlay, undo toasts, live progress bars and "processing shimmer".</li>
+    <li><b>Mini mode</b> (<span class="mono">/mini</span>): compact window with drop zone, prompt box, Plan Cards and last actions with Undo — the future desktop tray window.</li>
+    <li><b>Theme "Clean Ledger":</b> light and dark, Inter for text, JetBrains Mono for paths and the audit log; one teal accent (#0F766E light / #2DD4BF dark); 8 px radius, 1 px borders instead of shadows, 150–200 ms motion; respects "reduce motion".</li>
+    <li><b>Language:</b> English only (your decision). All text lives in locale files, so other languages can be added later.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 6 ───────────────────────── -->
+<section class="chapter">
+  <h1>6. Architecture and infrastructure</h1>
+  <h2>The big picture</h2>
+  <div class="diagram">
+    <div class="stack">
+      <div class="row3">
+        <div class="layer"><b>Web app</b> (React SPA)<br />main app + /mini · runs the "This device" engine in the browser</div>
+        <div class="layer"><b>Desktop app</b> (Tauri) <span class="tag todo">phase 12</span><br />tray + mini window, local folders</div>
+        <div class="layer"><b>Other AI apps</b> via MCP <span class="tag todo">phase 10</span><br />Claude Desktop, Claude Code, local LLM apps</div>
+      </div>
+      <div style="text-align:center;color:var(--muted)">↓ HTTPS (same origin) · cookies · SSE streaming</div>
+      <div class="row3">
+        <div class="layer"><b>API server</b> (Node + Hono)<br />auth, orgs, files, plans, rules, agent, search, connect, admin; also serves the web app</div>
+        <div class="layer"><b>Worker</b> (BullMQ)<br />indexing, analysis, AI, embeddings, rules, Drive sync tick</div>
+        <div class="layer"><b>MCP server</b> <span class="tag todo">phase 10</span><br />stdio + Streamable HTTP</div>
+      </div>
+      <div style="text-align:center;color:var(--muted)">↓ shared packages: core · ai · analysis · adapters · db · ui</div>
+      <div class="row4">
+        <div class="layer"><b>PostgreSQL 16</b><br />+ pgvector, unaccent</div>
+        <div class="layer"><b>Redis</b><br />job queues, rate limits, OAuth state</div>
+        <div class="layer"><b>File sources</b><br />Google Drive · browser folders · (later) S3, OneDrive, Dropbox, NAS</div>
+        <div class="layer"><b>AI providers</b><br />Claude, Bedrock, Vertex, OpenAI-compatible, Ollama</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Monorepo layout</h2>
+  <p>pnpm workspaces + Turborepo; TypeScript in strict mode everywhere; zod validation at every boundary.</p>
+  <table class="small">
+    <tr><th style="width:22%">Folder</th><th>Contents</th><th style="width:14%">Status</th></tr>
+    <tr><td class="mono">apps/web</td><td>Vite + React SPA: Tailwind, shadcn/ui-based components, lucide icons, framer-motion, Zustand, TanStack Query, cmdk, Dexie (IndexedDB) for "This device"</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">apps/server</td><td>Hono API: Better Auth, organizations, spaces/files, plans, rules, agent (SSE), search, connect (Google), admin, web-app serving</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">apps/worker</td><td>BullMQ consumers: index → analysis → flags → AI → embeddings → rules; schedule ticks (rules 15 min, Drive sync 5 min)</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">apps/mcp</td><td>MCP server</td><td><span class="tag todo">Phase 10</span></td></tr>
+    <tr><td class="mono">apps/desktop</td><td>Tauri 2 desktop app</td><td><span class="tag todo">Phase 12</span></td></tr>
+    <tr><td class="mono">packages/core</td><td>Types, StorageAdapter interface, plan engine, rules engine, undo, permissions, search query parser, ranking</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">packages/ai</td><td>AI providers, prompts, zod schemas, agent loop and tool definitions, embeddings</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">packages/analysis</td><td>Hashes, dHash, blur, brightness, EXIF, text extraction</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">packages/adapters</td><td>Server-side storage adapters: Google Drive (+ mock Google for tests), server folder; adapter registry</td><td><span class="tag partial">Drive + sample</span></td></tr>
+    <tr><td class="mono">packages/db</td><td>Drizzle schema + migrations, scoped data access, engine store, search, agent tools, encryption helpers</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">packages/ui</td><td>Shared React components and theme tokens</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">e2e</td><td>Playwright tests with a mock AI and a mock Google</td><td><span class="tag done">Built</span></td></tr>
+    <tr><td class="mono">deploy, Dockerfile, render.yaml</td><td>Development services (docker-compose), production container, Render blueprint</td><td><span class="tag done">Built</span></td></tr>
+  </table>
+
+  <h2>The storage adapter — how three modes share one engine</h2>
+  <p>All file I/O goes through one interface. Nothing else touches files. Each source implements it:</p>
+<pre>interface StorageAdapter {
+  list(path, cursor?)            → page of files          stat(ref)            → file + version
+  readThumbnail(ref, maxPx)      → small image             readText(ref, max)   → text excerpt
+  download(ref)                  → stream (preview only)   upload?(parent, file, name)
+  move(ref, newParent, {expectVersion})                    rename(ref, newName, {expectVersion})
+  createFolder(parent, name)     trash(ref)  ← people only  restore(ref)
+  changes(cursor?)               → incremental sync        subscribe?(webhookUrl) → push updates
+}                                // deliberately: no delete()</pre>
+  <table class="small">
+    <tr><th style="width:20%">Adapter</th><th>Implementation</th><th style="width:14%">Status</th></tr>
+    <tr><td>local-browser</td><td>File System Access API; trash = <span class="mono">.folderpilot-trash/</span></td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>gdrive</td><td>Drive API v3; change feed; Drive trash</td><td><span class="tag done">Done</span></td></tr>
+    <tr><td>local-server</td><td>Node fs on mounted paths (NAS/SMB), file watcher; today read-only for the dev sample</td><td><span class="tag partial">Read-only</span></td></tr>
+    <tr><td>onedrive</td><td>Microsoft Graph: delta query, webhooks, SharePoint libraries</td><td><span class="tag next">Next</span></td></tr>
+    <tr><td>dropbox</td><td>list_folder cursors, webhooks, move_v2, Dropbox trash</td><td><span class="tag next">Next</span></td></tr>
+    <tr><td>fp-cloud</td><td>S3-compatible bucket; folders in Postgres (moves are database-only); versioning; resumable uploads; quotas</td><td><span class="tag todo">Phase 7</span></td></tr>
+  </table>
+
+  <h2>The background pipeline</h2>
+  <div class="diagram">
+    <div class="flow">
+      <div class="box"><b>index</b>list/changes from the source; add, update, forget files</div><div class="arrow">→</div>
+      <div class="box"><b>analysis</b>hash, dHash, blur, EXIF, text (per file)</div><div class="arrow">→</div>
+      <div class="box"><b>flags</b>duplicates, bad files (per space)</div><div class="arrow">→</div>
+      <div class="box"><b>ai</b>insight per file (metered, cached)</div><div class="arrow">→</div>
+      <div class="box"><b>embeddings</b>vectors for search</div><div class="arrow">→</div>
+      <div class="box"><b>rules</b>auto rules run, suggest rules make plans</div>
+    </div>
+  </div>
+  <p>Every job is idempotent (a file already analyzed at its current version is skipped), retried with backoff, and permanent failures (budget reached, access revoked) fail without retrying. Progress is shown live in the space header.</p>
+</section>
+
+<!-- ───────────────────────── 7 ───────────────────────── -->
+<section class="chapter">
+  <h1>7. Data model</h1>
+  <p>PostgreSQL 16 with the <span class="mono">vector</span> (pgvector) and <span class="mono">unaccent</span> extensions; schema in Drizzle ORM, nine migrations. Every domain table carries an organization id; all access goes through a scoped data layer.</p>
+  <table class="small">
+    <tr><th style="width:24%">Table(s)</th><th>Purpose</th></tr>
+    <tr><td>users, sessions, accounts, verifications</td><td>Accounts and sign-in (Better Auth).</td></tr>
+    <tr><td>organizations, memberships, invitations</td><td>Organizations, roles (owner/admin/editor/viewer), invitations.</td></tr>
+    <tr><td>spaces</td><td>A connected source: mode, adapter, root folder, <b>encrypted</b> provider tokens, sync cursor, settings (account, folder name, needs-reconnect, last scan).</td></tr>
+    <tr><td>files</td><td>The index: path, name, extension, size, dates, version, sha256, dhash, blur, brightness, size in pixels, EXIF, text excerpt, category, tags, caption, suggested name, entities, confidence, status, flags, full-text document (trigger-maintained), embedding vector(1024) + model.</td></tr>
+    <tr><td>plans, plan_steps</td><td>Proposed changes: source (user/agent/rule/mcp), summary, status, approver, per-step before/after and status.</td></tr>
+    <tr><td>audit_events</td><td><b>Append-only</b> (a database trigger blocks UPDATE/DELETE): when, organization, actor (<span class="mono">user:… agent:… rule:… mcp:…</span>), action, files, before/after, reason, plan, batch, which event it undoes.</td></tr>
+    <tr><td>rules</td><td>Structured or natural, scope, priority, enabled, mode, schedule, conditions, actions, archived.</td></tr>
+    <tr><td>org_settings</td><td>Organization AI provider (keys encrypted), thresholds, monthly AI budget, auto-run limits.</td></tr>
+    <tr><td>ai_insight_cache, ai_usage</td><td>Same content + same model = no second call; every AI call metered.</td></tr>
+    <tr><td>agent_tool_calls</td><td>Log of every agent tool call (no file contents).</td></tr>
+    <tr><td>server_settings</td><td>Server-wide settings (e.g. Google keys), encrypted.</td></tr>
+    <tr><td>trash_items, versions, shares, api_keys, subscriptions, notifications</td><td>Created for later phases: Cloud-mode trash, versions and share links, MCP/API keys (hashed), Stripe subscriptions, notifications.</td></tr>
+  </table>
+  <p>On "This device", the browser keeps an equivalent index in IndexedDB (Dexie): files, plans, audit, rules, agent log — nothing leaves the computer.</p>
+</section>
+
+<!-- ───────────────────────── 8 ───────────────────────── -->
+<section class="chapter">
+  <h1>8. Security and privacy</h1>
+  <h2>In place today</h2>
+  <ul>
+    <li><b>Authentication:</b> Better Auth sessions (14 days), HttpOnly cookies, <span class="mono">Secure</span> in production, passwords ≥ 10 characters.</li>
+    <li><b>CSRF:</b> every state-changing request must come from the app's own origin (Origin/Referer check), plus CORS limited to the app.</li>
+    <li><b>Rate limiting:</b> Redis-backed limits for auth (30/min), API (600/min) and search, with an in-memory fallback.</li>
+    <li><b>Input validation:</b> zod at every API boundary.</li>
+    <li><b>Encryption at rest:</b> provider tokens, AI keys and server settings with AES-256-GCM; each ciphertext is bound to its owner (space, organization or server key), so it can't be copied elsewhere.</li>
+    <li><b>Tenant isolation:</b> scoped data layer; non-members get 404.</li>
+    <li><b>OAuth:</b> PKCE, single-use state bound to the user, tokens never returned to the browser, revoked on disconnect.</li>
+    <li><b>Security headers:</b> strict Content-Security-Policy (only own scripts plus a hashed inline theme script), no framing, nosniff, HSTS; file content always served as a download with nosniff (previews render from a blob, never from the API origin).</li>
+    <li><b>Path safety:</b> server folders refuse path-traversal and symlink escapes; the web-app server never serves files outside its build folder.</li>
+    <li><b>Logs:</b> structured, never contain file contents or secrets.</li>
+    <li><b>AI privacy:</b> only ≤512 px thumbnails or text excerpts are sent; prompts never include whole files.</li>
+    <li><b>CI:</b> dependency audit (high severity) on every push.</li>
+  </ul>
+  <h2>Still to do (spec §17)</h2>
+  <ul>
+    <li>GDPR: data export and account deletion with grace period (phase 11); DPA-ready documents in <span class="mono">/docs</span>.</li>
+    <li>Signed webhook verification for providers and Stripe (phases 8, 11).</li>
+    <li>Virus scanning (ClamAV) of uploads in Cloud mode (phase 7).</li>
+    <li>Formal security review checklist and penetration test (phase 14).</li>
+    <li>Email delivery (verification, invitations, password reset) — today links are written to the server log.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 9 ───────────────────────── -->
+<section class="chapter">
+  <h1>9. Hosting and deployment</h1>
+  <h2>How it runs</h2>
+  <p>FolderPilot ships as <b>one container</b> (<span class="mono">Dockerfile</span>). On start, <span class="mono">scripts/start.mjs</span> applies database migrations, then runs the API (which also serves the web app from the same address) and the worker side by side; if one stops, both restart. <span class="mono">FP_ROLE=server</span> or <span class="mono">worker</span> splits them into separate services when you grow. Memory at idle: about 330 MB for both.</p>
+  <h2>Option A — Render (one click, recommended to try it)</h2>
+  <ul>
+    <li>The <span class="mono">render.yaml</span> blueprint creates: the FolderPilot web service (Frankfurt/EU), PostgreSQL 16, and a Redis-compatible Key Value store (no-eviction). Secrets are generated automatically.</li>
+    <li>Start at <b>render.com/deploy?repo=https://github.com/perdido101/folderpilot</b> (or the "Deploy to Render" button in the README).</li>
+    <li>The public address (e.g. <span class="mono">https://folderpilot-ab12.onrender.com</span>) is picked up automatically.</li>
+  </ul>
+  <table class="small">
+    <tr><th>Render plan choice</th><th>What you get</th><th>Approximate cost*</th></tr>
+    <tr><td>All free</td><td>Sleeps after 15 min idle (≈1 min to wake), Drive sync pauses while asleep; 512 MB; free database expires after 30 days</td><td>$0</td></tr>
+    <tr><td>Starter web + paid database</td><td>Always on, data kept</td><td>≈ $7 + ≈ $7 per month</td></tr>
+    <tr><td>Standard web (2 GB)</td><td>Larger Drives, more analysis in parallel</td><td>≈ $25 + database</td></tr>
+  </table>
+  <p class="small muted">* Indicative prices; check Render's current pricing. AI usage is billed separately by your AI provider.</p>
+  <h2>Option B — any Docker host</h2>
+  <p>Run the image with <span class="mono">DATABASE_URL</span>, <span class="mono">REDIS_URL</span>, <span class="mono">APP_URL</span>/<span class="mono">API_URL</span> (your HTTPS address), <span class="mono">BETTER_AUTH_SECRET</span> and <span class="mono">ENCRYPTION_KEY</span>. Put HTTPS in front. Hetzner, Fly.io, Railway, a VPS or a NAS all work if they offer Postgres 16 with pgvector.</p>
+  <h2>Option C — local development</h2>
+<pre>pnpm install &amp;&amp; pnpm setup:env     # .env with fresh secrets
+pnpm services:up                    # Postgres + Redis in Docker
+pnpm db:migrate &amp;&amp; pnpm db:seed      # schema + demo account (owner@folderpilot.local / folderpilot-demo)
+pnpm dev                            # web http://localhost:5173 · API :3000 · worker</pre>
+  <h2>Target infrastructure (from the spec, later phases)</h2>
+  <ul>
+    <li><b>Cloud storage:</b> S3-compatible (Cloudflare R2, Backblaze B2 or Hetzner), EU region by default.</li>
+    <li><b>Self-host bundle</b> (<span class="mono">docker-compose.selfhost.yml</span>): server, worker, MCP, Postgres, Redis, optional Ollama — phase 9.</li>
+    <li><b>MCP</b> public endpoint at <span class="mono">/mcp</span> (Streamable HTTP, OAuth 2.1 or API key) — phase 10.</li>
+    <li><b>Stripe</b> for billing, <b>ClamAV</b> for upload scanning.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 10 ───────────────────────── -->
+<section class="chapter">
+  <h1>10. Configuration reference</h1>
+  <p>Only Postgres, Redis and two secrets are required. Everything that needs an external account is optional: the feature stays hidden with a "needs setup" notice until configured. Full list with comments in <span class="mono">.env.example</span>; step-by-step account setup in <span class="mono">docs/SETUP.md</span> and <span class="mono">docs/DEPLOY.md</span>.</p>
+  <table class="small">
+    <tr><th style="width:36%">Variable(s)</th><th>Purpose</th><th style="width:15%">Needed</th></tr>
+    <tr><td class="mono">DATABASE_URL, REDIS_URL</td><td>PostgreSQL 16 (+pgvector) and Redis</td><td>Required</td></tr>
+    <tr><td class="mono">BETTER_AUTH_SECRET, ENCRYPTION_KEY</td><td>Session signing; 32-byte key for encryption at rest (never change after launch)</td><td>Required in production</td></tr>
+    <tr><td class="mono">APP_URL, API_URL</td><td>Public addresses (automatic on Render)</td><td>Production</td></tr>
+    <tr><td class="mono">GOOGLE_CLIENT_ID / _SECRET</td><td>Google sign-in and Drive (Drive keys can also be set in Admin → Google Drive setup)</td><td>Optional</td></tr>
+    <tr><td class="mono">MICROSOFT_CLIENT_ID / _SECRET / _TENANT</td><td>Microsoft sign-in, OneDrive/SharePoint</td><td>Optional</td></tr>
+    <tr><td class="mono">DROPBOX_APP_KEY / _SECRET</td><td>Dropbox</td><td>Phase 8</td></tr>
+    <tr><td class="mono">S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET, S3_REGION</td><td>FolderPilot Cloud storage</td><td>Phase 7</td></tr>
+    <tr><td class="mono">ANTHROPIC_API_KEY, FP_AI_ANALYSIS_MODEL, FP_AI_AGENT_MODEL</td><td>FolderPilot AI (hosted default)</td><td>Optional</td></tr>
+    <tr><td class="mono">OLLAMA_URL, FP_EMBED_MODEL</td><td>Local AI and embeddings for search by meaning</td><td>Optional</td></tr>
+    <tr><td class="mono">STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, price IDs</td><td>Billing</td><td>Phase 11</td></tr>
+    <tr><td class="mono">CLAMAV_HOST</td><td>Upload virus scanning</td><td>Phase 7</td></tr>
+    <tr><td class="mono">MCP_PUBLIC_URL</td><td>Public MCP endpoint</td><td>Phase 10</td></tr>
+    <tr><td class="mono">FP_SYNC_INTERVAL_SEC</td><td>Drive change check interval (default 300)</td><td>Optional</td></tr>
+    <tr><td class="mono">FP_ADMIN_EMAILS</td><td>Who may change server-wide settings (default: first account)</td><td>Optional</td></tr>
+    <tr><td class="mono">FP_WEB_DIST, FP_ROLE, PORT, LOG_LEVEL, FP_QUEUE_PREFIX</td><td>Deployment details</td><td>Set by the container</td></tr>
+    <tr><td class="mono">FP_DEV_SAMPLE_DIR</td><td>Development-only sample space</td><td>Dev only</td></tr>
+  </table>
+</section>
+
+<!-- ───────────────────────── 11 ───────────────────────── -->
+<section class="chapter">
+  <h1>11. Quality: tests and CI</h1>
+  <table class="small">
+    <tr><th style="width:24%">Layer</th><th>Count</th><th>What it covers (highlights)</th></tr>
+    <tr><td>Unit tests (Vitest)</td><td>256</td><td>Engine (plans, approvals, conflicts, undo, crash recovery, human-only trash), rules, permissions, search parsing and ranking, AI JSON parsing and providers (mocked), analysis (dHash, blur, EXIF, text), Google Drive adapter against a mock Drive (paging, change feed, moves with " (2)", trash/restore, token refresh, rate-limit backoff, revoked access), web-app serving and CSP, browser stores.</td></tr>
+    <tr><td>Integration tests (real Postgres + Redis)</td><td>95</td><td>Database: append-only audit trigger, scoping, search indexes. Server: auth and roles, AI settings, files and review, rules, agent streaming and tool logging, search API, Google connect (consent URL, PKCE, forged/replayed state, encrypted tokens, folder picker, disconnect), Admin Google setup. Worker: full pipeline, rules triggers, embeddings, Drive sync with real moves/undo/conflicts/trash/reconnect.</td></tr>
+    <tr><td>End-to-end (Playwright, Chromium)</td><td>14</td><td>Sign-up → organization; this-device engine (move/undo on disk, trash/restore, conflicts, duplicates); device rules, agent and search; server pipeline with mock AI (analyze → review → accept → audit → undo); server rules, agent, search; Google Drive end to end with a mock Google. All 14 also pass against the production build.</td></tr>
+    <tr><td>CI (GitHub Actions)</td><td>every push</td><td>Install, lint, typecheck, unit tests, integration tests (Postgres + Redis services), build, dependency audit.</td></tr>
+  </table>
+  <p class="small muted">Not tested here: real AI quality (no AI keys in the build environment — mocks are used), a real Google account end to end (your test), the Docker image build (the build sandbox blocks downloads; Render builds it).</p>
+</section>
+
+<!-- ───────────────────────── 12 ───────────────────────── -->
+<section class="chapter">
+  <h1>12. How to use and test it</h1>
+  <h2>A. Online with your Google Drive</h2>
+  <ol>
+    <li>Deploy on Render (chapter 9). Open your address, <b>Create account</b> (this first account is the server admin), create your organization.</li>
+    <li><b>New → Connect a source… → Set up Google Drive</b>. Follow the six steps; each "Open: …" button opens the right Google Cloud page. Paste the Client ID and secret → <b>Check and save</b>.</li>
+    <li>Click <b>Connect Google Drive</b>. On "Google hasn't verified this app" click <b>Continue</b> (normal for your own test app), allow access.</li>
+    <li>Pick a <b>test folder</b> with a few documents and photos → <b>Use "…"</b>. Watch files appear and get analyzed.</li>
+    <li>Set an AI: <b>Settings → AI for your organization</b> (e.g. your Claude API key) or put <span class="mono">ANTHROPIC_API_KEY</span> on the server.</li>
+  </ol>
+  <h2>B. Test checklist</h2>
+  <table class="small">
+    <tr><th style="width:5%">#</th><th>Try</th><th>Expected</th></tr>
+    <tr><td>1</td><td>Needs Review: accept a suggestion, set a category yourself</td><td>Category changes; "Make this a rule?" offered</td></tr>
+    <tr><td>2</td><td>Rules → New rule: <i>category is Invoices → move to Invoices/{year}</i>; Test; Save; Run all</td><td>Dry-run count; a plan in Pending Approvals; nothing moved yet</td></tr>
+    <tr><td>3</td><td>Approve the plan; check drive.google.com</td><td>Files really moved</td></tr>
+    <tr><td>4</td><td>Audit Log → Undo</td><td>Files back in place in Drive</td></tr>
+    <tr><td>5</td><td>Ask the agent: "tag the invoices from 2024 as paid"</td><td>Streaming answer, a Plan Card; approve it</td></tr>
+    <tr><td>6</td><td>Ask the agent to delete something</td><td>It refuses: no delete tool; may flag for review</td></tr>
+    <tr><td>7</td><td>Duplicates &amp; Bad Files → Review one by one</td><td>← trash / → keep; trashed files go to Drive's trash</td></tr>
+    <tr><td>8</td><td>Search "bill" or "the contract with Alpha"</td><td>Results with chips and highlights (by meaning if your AI embeds)</td></tr>
+    <tr><td>9</td><td>Rename/move a file in Drive yourself, then Scan &amp; analyze</td><td>FolderPilot follows; analysis kept</td></tr>
+    <tr><td>10</td><td>Edit a file in Drive after a plan was made, then approve</td><td>Conflict — nothing overwritten</td></tr>
+    <tr><td>11</td><td>Click a file → Open in Google Drive</td><td>Opens the file in Drive</td></tr>
+    <tr><td>12</td><td>⚙ Space settings → Disconnect</td><td>Space removed; Drive untouched; access revoked</td></tr>
+    <tr><td>13</td><td>Invite a colleague as viewer</td><td>They can look and propose, not approve (invite link appears in the server log until email is set up)</td></tr>
+  </table>
+  <h2>C. Without an account ("This device")</h2>
+  <p>Open the app, choose to use it on this device without an account, then drag a folder in (Chrome or Edge). Everything stays on your computer; AI is optional (your own endpoint or Ollama).</p>
+</section>
+
+<!-- ───────────────────────── 13 ───────────────────────── -->
+<section class="chapter">
+  <h1>13. What's not built yet — remaining phases</h1>
+
+  <h3>Rest of phase 8 — OneDrive/SharePoint and Dropbox <span class="tag next">Next</span></h3>
+  <ul>
+    <li>OneDrive/SharePoint via Microsoft Graph: drive items, delta sync, webhook subscriptions, move/rename via PATCH, thumbnails, SharePoint document libraries; Microsoft Entra app setup (with an in-app setup page like Google's).</li>
+    <li>Dropbox: <span class="mono">list_folder</span> cursors, webhooks, <span class="mono">move_v2</span>, thumbnails, trash via recoverable delete.</li>
+    <li>Push notifications (webhooks) for all three providers once a public HTTPS address exists — instant sync instead of the 5-minute poll.</li>
+  </ul>
+
+  <h3>Phase 7 — FolderPilot Cloud</h3>
+  <ul>
+    <li>Own storage on S3-compatible buckets (R2/B2/Hetzner), EU by default; folders kept in Postgres so moves are instant.</li>
+    <li>Uploads: drag-drop files/folders, resumable multipart, progress tray; ClamAV virus scan on upload.</li>
+    <li>Previews: images, PDF, video/audio, text; Office files through a viewer integration (later OnlyOffice/Collabora).</li>
+    <li>Share links (view/download, expiry, password); version history + restore; FolderPilot Trash with retention.</li>
+    <li>Storage quotas per plan, usage meter, pay-as-you-go overage counted daily; abuse report + admin takedown.</li>
+  </ul>
+
+  <h3>Phase 9 — Private mode server</h3>
+  <ul>
+    <li>Writable server-folder adapter (NAS/SMB mounts) with a file watcher.</li>
+    <li><span class="mono">docker-compose.selfhost.yml</span>: server, worker, MCP, Postgres, Redis, optional Ollama — runs on the office network.</li>
+    <li>License key check; AI provider override per space or folder (e.g. /Legal = local AI only).</li>
+  </ul>
+
+  <h3>Phase 10 — MCP server</h3>
+  <ul>
+    <li>Lets other AI apps use FolderPilot: Claude Desktop, Claude Code, ChatGPT-style clients, LM Studio / Ollama front-ends.</li>
+    <li>Transports: stdio (local, launched by the desktop app or <span class="mono">npx folderpilot-mcp</span>) and Streamable HTTP at <span class="mono">/mcp</span> (OAuth 2.1 or per-user API key).</li>
+    <li>Same tools as the agent — <b>no delete, no approve</b>; plans appear in Pending Approvals with a link. Resources (<span class="mono">folderpilot://file/{id}</span>, rules) and prompts ("organize folder", "find document"). Audited as <span class="mono">mcp:&lt;client&gt;:&lt;user&gt;</span>, rate-limited. Optional admin setting: auto-run small plans from MCP (default off).</li>
+  </ul>
+
+  <h3>Phase 11 — Billing and admin</h3>
+  <ul>
+    <li>Plans in <span class="mono">packages/core/plans.ts</span> (storage GB, AI files/month, seats, features). Tentative tiers: Free, Personal, Plus, Business (per seat), Connect-only (per seat), Private (license key, invoiced). <b>Prices are placeholders — not decided.</b></li>
+    <li>Stripe Checkout, customer portal, webhooks, grace periods, metered storage overage; feature gates read from the plan.</li>
+    <li>Admin pages: members &amp; roles (exists), spaces, AI provider (exists), auto-run thresholds (exists), retention, MCP/API keys, billing, audit export (CSV/PDF); GDPR data export and account deletion.</li>
+  </ul>
+
+  <h3>Phase 12 — Desktop app (Tauri 2)</h3>
+  <ul>
+    <li>Tray icon → mini window (~400×520) above the tray with drop zone, prompt, Plan Cards, last actions + Undo, "Open full app"; global shortcut Ctrl+Shift+Space.</li>
+    <li>Local folders (Private mode, single user) through Rust file commands; uploader to Cloud mode; Explorer context menu "Organize with FolderPilot" / "Ask FolderPilot about this folder"; launches the local MCP server; auto-update and code signing.</li>
+  </ul>
+
+  <h3>Phase 13 — Windows sync drive (feature flag)</h3>
+  <ul><li>FolderPilot appears in Explorer via the Windows Cloud Files API: placeholders, files download when opened, status icons, two-way sync with conflict copies.</li></ul>
+
+  <h3>Phase 14 — Hardening</h3>
+  <ul><li>Complete E2E suite; performance with 100,000 files; security review checklist; onboarding wizard polish (pick mode → connect source → starter rules → first organize); seed script and 500+-file messy sample generator (exists); documentation.</li></ul>
+
+  <h3>Smaller gaps inside finished phases</h3>
+  <ul>
+    <li>Recent, Categories and Trash views work for "This device" but not yet for server spaces.</li>
+    <li>Upload and New folder in the New menu ("Soon").</li>
+    <li>Notifications panel is a placeholder.</li>
+    <li>Sign in with Google from keys saved in the app (today sign-in uses server environment keys only).</li>
+    <li>Agent conversations live in the browser tab only (not saved on the server or shared between devices).</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 14 ───────────────────────── -->
+<section class="chapter">
+  <h1>14. What we haven't discussed yet</h1>
+  <p>Topics not yet decided in our conversations. Several matter before real customers use FolderPilot.</p>
+
+  <div class="callout warn">
+    <p><b>Most important: Google's "restricted scope" verification.</b> FolderPilot uses the full <span class="mono">drive</span> permission so it can organize existing files. Google classifies this as a <i>restricted</i> scope. In Testing mode it works for up to 100 named test users with re-login every 7 days. To open it to the public, Google requires app verification <b>and</b> a yearly independent security assessment (CASA), which takes weeks and has a cost. Alternatives: stay in Testing for pilots, use Google Workspace "internal" apps per customer, or a narrower scope (<span class="mono">drive.file</span>) that only reaches files the user picks — which limits what FolderPilot can organize. Microsoft and Dropbox have their own (lighter) review processes.</p>
+  </div>
+
+  <h3>Business and product</h3>
+  <ul>
+    <li><b>Pricing</b> — actual prices, free-tier limits, AI cost per file (and margin), storage price per GB, overage.</li>
+    <li><b>Brand and domain</b> — a domain (e.g. folderpilot.app), logo, website/landing page, email sender address.</li>
+    <li><b>Legal</b> — terms of service, privacy policy, data processing agreement (DPA) for B2B, sub-processor list (Render, AI provider, Google), cookie notice. Required for Google verification too.</li>
+    <li><b>Company setup</b> — the legal entity that signs with customers and holds the Google/Microsoft/Stripe accounts.</li>
+    <li><b>Target market and languages</b> — UI is English only by your choice; first market(s) and whether other languages come later.</li>
+    <li><b>Onboarding</b> — starter rule packs per profession (accountants, lawyers, agencies), sample data, first-run tour.</li>
+    <li><b>Support</b> — help center, contact, in-app feedback.</li>
+  </ul>
+
+  <h3>Operations</h3>
+  <ul>
+    <li><b>Production hosting</b> — Render is ideal to try it; for customers decide region (EU), paid plans, separate staging and production, and possibly Hetzner/Fly for cost.</li>
+    <li><b>Backups and recovery</b> — automatic Postgres backups, point-in-time restore, tested restore procedure; what happens if the encryption key is lost (stored tokens become unreadable — keep it in a password manager).</li>
+    <li><b>Monitoring</b> — uptime checks, error tracking (e.g. Sentry), log retention, alerts on failed jobs and AI budget.</li>
+    <li><b>Email delivery</b> — a provider (Postmark, Resend, SES) for verification, invitations, password reset, weekly summaries.</li>
+    <li><b>Scaling</b> — splitting server/worker, worker concurrency, AI rate limits, very large Drives (100k+ files), queue monitoring.</li>
+    <li><b>Release process</b> — versioning, changelog, database migration policy, feature flags.</li>
+  </ul>
+
+  <h3>Product questions</h3>
+  <ul>
+    <li><b>Trash retention and purge</b> — today nothing is ever purged automatically; when and how permanent deletion happens (a human-only, admin-configured setting).</li>
+    <li><b>AI cost policy</b> — which model per task, how many files per month per plan, what happens at the budget limit, re-analysis rules.</li>
+    <li><b>Data retention</b> — how long the index, audit log and AI results are kept after disconnecting or cancelling.</li>
+    <li><b>Sharing and collaboration</b> — comments, mentions, notifications, multiple approvers for big plans.</li>
+    <li><b>Mobile</b> — a phone experience (the web app is desktop-first today).</li>
+    <li><b>Accessibility</b> — formal WCAG review.</li>
+    <li><b>Analytics</b> — privacy-friendly product analytics to learn what customers use.</li>
+    <li><b>Reporting</b> — audit export (CSV/PDF) is planned; dashboards ("this month FolderPilot organized 1,240 files") are not.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 15 ───────────────────────── -->
+<section class="chapter">
+  <h1>15. Known limitations (today)</h1>
+  <ul>
+    <li><b>Email isn't sent</b> — verification, invitation and password-reset links appear in the server log.</li>
+    <li><b>Google Testing mode</b> — only listed test users; re-connect every 7 days (one click, analysis kept).</li>
+    <li><b>Drive sync every 5 minutes</b> (or on demand) — instant push needs webhooks (with a public address; coming).</li>
+    <li><b>Render free plan</b> — sleeps after 15 minutes; free database expires after 30 days.</li>
+    <li><b>Search by meaning</b> needs an AI that can make embeddings (OpenAI-compatible, Ollama, or the server's Ollama); otherwise words only. Real embedding quality has only been tested with mocks.</li>
+    <li><b>Full-text search</b> is language-neutral with English plural folding; other word forms rely on prefixes and meaning.</li>
+    <li><b>Files over 256 MB</b> are indexed and hashed but not decoded or read for text.</li>
+    <li><b>Browser mode</b> needs Chrome or Edge (File System Access API); browsers can't watch folders, so outside changes appear on Rescan; scheduled rules run only while the app is open.</li>
+    <li><b>Server-folder space</b> (dev sample) is read-only until phase 9.</li>
+    <li><b>Agent and AI quality</b> are tested with scripted mock AIs; real-model behavior needs your testing with a real key.</li>
+    <li><b>Trash is never purged automatically</b> (by design until retention settings exist).</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 16 ───────────────────────── -->
+<section class="chapter">
+  <h1>16. Recommended next steps</h1>
+  <ol>
+    <li><b>Test on your own Drive</b> (chapter 12) with a test folder and a real AI key; note anything confusing or wrong.</li>
+    <li><b>Build OneDrive/SharePoint and Dropbox</b> (completes phase 8) — many offices use Microsoft 365.</li>
+    <li><b>Decide on Google verification strategy</b> before inviting anyone outside your test list.</li>
+    <li><b>Set up email delivery</b> so invitations and password resets work for colleagues.</li>
+    <li><b>Phase 7 (Cloud)</b> for customers without a cloud drive.</li>
+    <li><b>Legal basics</b> (terms, privacy policy, DPA) and a domain — prerequisites for real customers and for Google verification.</li>
+    <li><b>Pick pricing</b> before billing (phase 11).</li>
+    <li>Then MCP (10), Private server (9), desktop (12), sync drive (13), hardening (14).</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────── 17 ───────────────────────── -->
+<section class="chapter">
+  <h1>17. Glossary</h1>
+  <table class="small">
+    <tr><th style="width:24%">Term</th><th>Meaning</th></tr>
+    <tr><td>Space</td><td>One connected source of files (a Drive folder, a computer folder, later a bucket or NAS folder).</td></tr>
+    <tr><td>Plan / Plan Card</td><td>A proposed set of changes with before → after; shown as a card with Approve / Edit / Cancel.</td></tr>
+    <tr><td>Batch</td><td>All changes executed by one plan; undo can reverse a whole batch.</td></tr>
+    <tr><td>Audit log</td><td>The permanent, append-only record of every change: who, what, before → after, why.</td></tr>
+    <tr><td>Suggest / Auto rule</td><td>Suggest creates plans for approval; Auto applies by itself (still audited and undoable).</td></tr>
+    <tr><td>Needs Review</td><td>Files the AI wasn't confident about (below the threshold); a person decides.</td></tr>
+    <tr><td>FileInsight</td><td>The AI's description of a file: category, tags, caption, suggested name, client/date/amount/doc type, confidence.</td></tr>
+    <tr><td>dHash</td><td>A tiny "fingerprint" of an image's look; similar images have similar fingerprints (look-alikes).</td></tr>
+    <tr><td>Embedding</td><td>A list of numbers that captures what a text means, used for search by meaning.</td></tr>
+    <tr><td>Hybrid search / RRF</td><td>Combining word matches and meaning matches; reciprocal-rank fusion merges the two rankings.</td></tr>
+    <tr><td>Storage adapter</td><td>The plug-in that talks to one kind of storage (browser folder, Drive, S3…) through one common interface.</td></tr>
+    <tr><td>OAuth client (Client ID/secret)</td><td>FolderPilot's registration with Google/Microsoft/Dropbox that lets users grant it access.</td></tr>
+    <tr><td>Test user / Testing mode</td><td>Google's mode for unverified apps: only listed accounts, re-login every 7 days.</td></tr>
+    <tr><td>Restricted scope / CASA</td><td>Google's strictest permission class (full Drive access) and the security assessment needed to publish such apps.</td></tr>
+    <tr><td>MCP</td><td>Model Context Protocol: a standard that lets AI apps use outside tools — FolderPilot will offer its tools this way.</td></tr>
+    <tr><td>Worker / queue</td><td>Background process and job list (BullMQ on Redis) doing scanning, analysis and AI work.</td></tr>
+    <tr><td>pgvector</td><td>PostgreSQL extension that stores embeddings and finds similar ones quickly.</td></tr>
+    <tr><td>Tenant / organization</td><td>A customer's workspace; data never crosses between them.</td></tr>
+    <tr><td>Blueprint (Render)</td><td>The <span class="mono">render.yaml</span> file that describes all services to create in one click.</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:8mm">Source documents in the repository: <span class="mono">CLAUDE.md</span> (product spec v2), <span class="mono">PROGRESS.md</span> (phase-by-phase status, verification and known issues), <span class="mono">docs/SETUP.md</span> (external accounts step by step), <span class="mono">docs/DEPLOY.md</span> (online deployment), <span class="mono">.env.example</span> (all settings).</p>
+</section>
+
+</body>
+</html>
